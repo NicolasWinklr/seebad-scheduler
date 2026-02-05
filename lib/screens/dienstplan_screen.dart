@@ -896,6 +896,32 @@ class _ResultStats extends StatelessWidget {
             'Abdeckung: ${result.stats.coveragePercent.toStringAsFixed(1)}%',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
+          if (result.violations.isNotEmpty) ...[
+            const Divider(),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Konflikte (${result.violations.length}):',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: SeebadColors.error),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: result.violations.map((v) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      '• ${v.message}',
+                      style: const TextStyle(fontSize: 11, color: SeebadColors.textSecondary),
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

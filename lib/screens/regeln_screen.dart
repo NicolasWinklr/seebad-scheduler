@@ -32,6 +32,26 @@ class _RegelnScreenState extends ConsumerState<RegelnScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (cfg == SolverConfig.defaults)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: SeebadColors.info.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SeebadColors.info.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: SeebadColors.info),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('Es werden aktuell die Standard-Einstellungen verwendet.')),
+                      ],
+                    ),
+                  ),
+                ),
+
               // Hard rules section
               _SectionCard(
                 title: 'Harte Regeln',
@@ -77,36 +97,43 @@ class _RegelnScreenState extends ConsumerState<RegelnScreen> {
                   children: [
                     _WeightSlider(
                       title: 'Abdeckung (Ideal erreichen)',
+                      subtitle: 'Sorgt dafür, dass die ideale Anzahl an Mitarbeitern pro Schicht erreicht wird.',
                       value: config.weightCoverageIdeal,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightCoverageIdeal: v)),
                     ),
                     _WeightSlider(
-                      title: 'Unterdeckung (unter Minimum)',
+                      title: 'Unterdeckung vermeiden',
+                      subtitle: 'Vermeidet Schichten unter der Mindestbesetzung (sehr wichtig).',
                       value: config.weightCoverageUnderMin,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightCoverageUnderMin: v)),
                     ),
                     _WeightSlider(
-                      title: 'Arbeitsstunden-Abweichung',
+                      title: 'Arbeitsstunden-Ausgleich',
+                      subtitle: 'Versucht jedem Mitarbeiter gleich viele Stunden zu geben (relativ zu %).',
                       value: config.weightHoursDeviation,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightHoursDeviation: v)),
                     ),
                     _WeightSlider(
-                      title: 'Soft-Präferenz Verletzung',
+                      title: 'Soft-Präferenz beachten',
+                      subtitle: 'Respektiert "Lieber unter der Woche" / "Kein Wochenende" Wünsche.',
                       value: config.weightSoftPreference,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightSoftPreference: v)),
                     ),
                     _WeightSlider(
-                      title: 'Blockplanung (zusammenhängende Tage)',
+                      title: 'Blockplanung (zusammenhängend)',
+                      subtitle: 'Bevorzugt mehrere Tage am Stück statt zerstückelter Schichten.',
                       value: config.weightBlockPlanning,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightBlockPlanning: v)),
                     ),
                     _WeightSlider(
                       title: 'Sonntag-Fairness',
+                      subtitle: 'Achtet darauf, dass Sonntage gerecht unter allen verteilt werden.',
                       value: config.weightSundayFairness,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightSundayFairness: v)),
                     ),
                     _WeightSlider(
                       title: 'Arbeitslast-Glättung',
+                      subtitle: 'Verhindert zu viele harte Tage nacheinander.',
                       value: config.weightWorkloadSmoothing,
                       onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightWorkloadSmoothing: v)),
                     ),
@@ -166,8 +193,42 @@ class _RegelnScreenState extends ConsumerState<RegelnScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Fehler: $e')),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text('Konfiguration konnte nicht geladen werden', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Fehler: $e', style: const TextStyle(color: SeebadColors.textSecondary)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _seedDefaults,
+              icon: const Icon(Icons.restore),
+              label: const Text('Standard-Werte laden'),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _seedDefaults() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(settingsRepositoryProvider).seedDefaults();
+      // Force refresh (optional, as stream should update)
+       ref.invalidate(solverConfigProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Laden: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _saveConfig() async {
@@ -348,11 +409,13 @@ class _NumberSetting extends StatelessWidget {
 
 class _WeightSlider extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final int value;
   final ValueChanged<int> onChanged;
 
   const _WeightSlider({
     required this.title,
+    this.subtitle,
     required this.value,
     required this.onChanged,
   });
@@ -366,7 +429,16 @@ class _WeightSlider extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(title)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 14)),
+                    if (subtitle != null)
+                      Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
