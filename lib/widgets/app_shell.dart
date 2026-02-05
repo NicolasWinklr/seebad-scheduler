@@ -294,15 +294,16 @@ class _TopBar extends ConsumerWidget {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Testdaten laden?'),
+                        title: const Text('Testdaten neu generieren?'),
                         content: const Text(
-                          'Vorsicht! Dies überschreibt/ergänzt Daten in der Datenbank mit Testdaten (Mitarbeiter, Schichten, etc.).',
+                          'Achtung: Dies LÖSCHT alle vorhandenen Daten (Mitarbeiter, Pläne, Schichten) und generiert neue, zufällige Testdaten.',
                         ),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
                           TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
                             onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Laden'),
+                            child: const Text('Neu generieren'),
                           ),
                         ],
                       ),
@@ -312,7 +313,7 @@ class _TopBar extends ConsumerWidget {
                       try {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Lade Testdaten...')),
+                            const SnackBar(content: Text('Generiere neue Daten (bitte warten)...')),
                           );
                         }
                         
@@ -321,7 +322,7 @@ class _TopBar extends ConsumerWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Testdaten erfolgreich geladen!'),
+                              content: Text('Neue Testdaten erfolgreich erstellt!'),
                               backgroundColor: SeebadColors.success,
                             ),
                           );
@@ -329,6 +330,8 @@ class _TopBar extends ConsumerWidget {
                           ref.invalidate(shiftTemplatesProvider);
                           ref.invalidate(employeesProvider);
                           ref.invalidate(periodsProvider);
+                          // Navigate to dashboard to avoid stale state issues
+                          context.go('/dashboard');
                         }
                       } catch (e) {
                         if (context.mounted) {
@@ -338,6 +341,37 @@ class _TopBar extends ConsumerWidget {
                         }
                       }
                     }
+                  } else if (value == 'clear') {
+                     final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Alles löschen?'),
+                        content: const Text(
+                          'Dies entfernt ALLE Daten aus der Datenbank. Die App wird leer sein.',
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Löschen'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                       await SeedDataService().clearAllData();
+                       if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Alles gelöscht.')),
+                          );
+                          ref.invalidate(shiftTemplatesProvider);
+                          ref.invalidate(employeesProvider);
+                          ref.invalidate(periodsProvider);
+                          context.go('/dashboard');
+                       }
+                    }
                   }
                 },
                 itemBuilder: (context) => [
@@ -345,11 +379,24 @@ class _TopBar extends ConsumerWidget {
                     value: 'seed',
                     child: Row(
                       children: [
-                        Icon(Icons.cloud_upload_outlined, size: 20, color: Colors.orange),
+                        Icon(Icons.refresh, size: 20, color: SeebadColors.primary),
                         SizedBox(width: 8),
-                        Text('Testdaten laden (Debug)'),
+                        Text('Testdaten neu generieren'),
                       ],
                     ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text('Alle Daten löschen'),
+                      ],
+                    ),
+                  ),
+                  const PopupMargin(
+                    child: Divider(),
                   ),
                   const PopupMenuItem(
                     value: 'logout',

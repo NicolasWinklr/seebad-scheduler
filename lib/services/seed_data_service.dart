@@ -1,6 +1,7 @@
 // Seed data script
 // Creates initial data for testing
 
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -11,9 +12,41 @@ class SeedDataService {
   final ShiftTemplateRepository _templateRepo = ShiftTemplateRepository();
   final SettingsRepository _settingsRepo = SettingsRepository();
   final PeriodRepository _periodRepo = PeriodRepository();
+  final Random _random = Random();
+
+  /// Delete all test data
+  Future<void> clearAllData() async {
+    print('Clearing all data...');
+    
+    // Employees
+    final employees = await _firestore.collection('employees').get();
+    for (var doc in employees.docs) await doc.reference.delete();
+
+    // Periods and their subcollections
+    final periods = await _firestore.collection('periods').get();
+    for (var doc in periods.docs) {
+      final assignments = await doc.reference.collection('assignments').get();
+      for (var a in assignments.docs) await a.reference.delete();
+      
+      final violations = await doc.reference.collection('violations').get();
+      for (var v in violations.docs) await v.reference.delete();
+      
+      final locks = await doc.reference.collection('locks').get();
+      for (var l in locks.docs) await l.reference.delete();
+
+      await doc.reference.delete();
+    }
+
+    // Shift Templates
+    final templates = await _firestore.collection('shift_templates').get();
+    for (var doc in templates.docs) await doc.reference.delete();
+    
+    print('Data cleared.');
+  }
 
   /// Run all seeding operations
   Future<void> seedAll() async {
+    await clearAllData(); // Ensure clean slate
     await seedShiftTemplates();
     await seedEmployees();
     await seedSolverConfig();
@@ -179,6 +212,7 @@ class SeedDataService {
 
     print('Seeding ${staffList.length} employees...');
     
+    // Seed employees with some randomness
     for (var i = 0; i < staffList.length; i++) {
         final entry = staffList[i];
         final nameParts = entry.$1.split(' ');
@@ -189,6 +223,22 @@ class SeedDataService {
 
         final isFerial = status == ContractStatus.ferialer;
         
+        // Randomize workload slightly
+        final workload = isFerial 
+            ? [20, 30, 40, 50, 60][_random.nextInt(5)] 
+            : [80, 100][_random.nextInt(2)];
+
+        // Randomize vacations for 50% of staff
+        final absences = <DateRange>[];
+        if (_random.nextBool()) { 
+           final today = DateTime.now();
+           // Vacation starts within next 60 days
+           final start = today.add(Duration(days: _random.nextInt(60)));
+           // Duration 3-14 days
+           final duration = _random.nextInt(12) + 3;
+           absences.add(DateRange(from: start, to: start.add(Duration(days: duration))));
+        }
+
         final emp = Employee(
             id: 'emp_${firstName.toLowerCase()}_${lastName.toLowerCase()}_${i}',
             firstName: firstName,
@@ -196,13 +246,13 @@ class SeedDataService {
             isActive: true,
             contractStatus: status,
             contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-            workloadPct: isFerial ? 50 : 100, // Guess
+            workloadPct: workload,
             areas: areas,
             contractStart: DateTime(2023, 1, 1),
             softPreference: SoftPreference.egal,
             timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
             freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-            absences: Absences(vacationRanges: [], shortUnavailability: []),
+            absences: Absences(vacationRanges: absences, shortUnavailability: []),
             notes: isFerial ? 'Ferialer / Aushilfe' : 'Stammpersonal',
         );
 
@@ -219,7 +269,7 @@ class SeedDataService {
   Future<void> seedSamplePeriod() async {
     final now = DateTime.now();
     
-    // Create current month
+    // Create current month (Period.create now uses 1st to last day)
     final period1 = Period.create(year: now.year, month: now.month);
     await _periodRepo.create(period1);
     

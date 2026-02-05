@@ -74,13 +74,14 @@ class Period {
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
-  /// Create a new period starting on the 15th of a month
+  /// Create a new period for a full calendar month
   factory Period.create({
     required int year,
     required int month,
   }) {
-    final startDate = DateTime(year, month, 15);
-    final endDate = DateTime(year, month + 1, 14);
+    final startDate = DateTime(year, month, 1);
+    // Day 0 of next month is the last day of current month
+    final endDate = DateTime(year, month + 1, 0);
     final id = '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}';
 
     return Period(
