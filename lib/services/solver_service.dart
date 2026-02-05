@@ -345,14 +345,19 @@ class Solver {
     final targetHours = _calculateTargetHours(emp, periodDates.length);
     
     if (targetHours > 0) {
-      // 0.0 = 0% filled, 1.0 = 100% filled
       final ratio = currentHours / targetHours;
-      // Bonus for being under target (ratio < 1.0), Penalty for being over (ratio > 1.0)
-      // E.g. at 0% -> +50 score. At 50% -> +25 score. At 100% -> 0. At 120% -> -10.
-      score += (1.0 - ratio) * 50; 
+      
+      // HARD PENALTY: If already at or over target, strongly discourage more shifts
+      // This ensures everyone gets their hours before anyone gets extra
+      if (ratio >= 1.0) {
+        score -= 200; // Massive penalty - only use as last resort
+      } else {
+        // Bonus proportional to how much capacity remains (0% filled = +80, 50% = +40)
+        score += (1.0 - ratio) * 80;
+      }
     } else {
-      // Penalty per hour if target is 0
-      score -= currentHours * 5;
+      // If target is 0, heavily discourage any assignment
+      score -= 150;
     }
 
     // Factor 2: Sunday fairness

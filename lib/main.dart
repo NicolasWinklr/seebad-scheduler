@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'utils/theme.dart';
 import 'utils/router.dart';
@@ -34,6 +35,16 @@ class SeebadSchedulerApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: SeebadTheme.lightTheme,
       routerConfig: router,
+      locale: const Locale('de', 'DE'),
+      supportedLocales: const [
+        Locale('de', 'DE'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
     );
   }
 }
