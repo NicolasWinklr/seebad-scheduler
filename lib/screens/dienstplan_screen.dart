@@ -69,8 +69,9 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
                         items: list.map((p) => DropdownMenuItem(
                           value: p.id,
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(child: Text(p.shortLabel, overflow: TextOverflow.ellipsis)),
+                              Flexible(child: Text(p.shortLabel, overflow: TextOverflow.ellipsis)),
                               const SizedBox(width: 8),
                               _StatusBadge(status: p.status),
                             ],

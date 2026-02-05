@@ -207,6 +207,21 @@ class TimeRestrictions {
     };
   }
 
+  factory TimeRestrictions.empty() => TimeRestrictions();
+
+  /// Copy with method for TimeRestrictions
+  TimeRestrictions copyWith({
+    TimeRestriction? global,
+    Map<String, TimeRestriction?>? perWeekday,
+    Map<String, TimeRestriction>? dateOverrides,
+  }) {
+    return TimeRestrictions(
+      global: global ?? this.global,
+      perWeekday: perWeekday ?? this.perWeekday,
+      dateOverrides: dateOverrides ?? this.dateOverrides,
+    );
+  }
+
   /// Get effective time restriction for a specific date
   TimeRestriction getEffectiveRestriction(DateTime date) {
     // Check date override first
@@ -258,6 +273,17 @@ class Absences {
       'vacationRanges': vacationRanges.map((e) => e.toMap()).toList(),
       'shortUnavailability': shortUnavailability.map((e) => e.toMap()).toList(),
     };
+  }
+
+  /// Copy with method for Absences
+  Absences copyWith({
+    List<DateRange>? vacationRanges,
+    List<DateRange>? shortUnavailability,
+  }) {
+    return Absences(
+      vacationRanges: vacationRanges ?? this.vacationRanges,
+      shortUnavailability: shortUnavailability ?? this.shortUnavailability,
+    );
   }
 
   /// Check if employee is unavailable on a specific date

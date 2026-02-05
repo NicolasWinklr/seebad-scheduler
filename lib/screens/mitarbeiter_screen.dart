@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
@@ -400,44 +401,128 @@ class _TimesTab extends StatelessWidget {
   }
 }
 
-class _AbsencesTab extends StatelessWidget {
+class _AbsencesTab extends ConsumerWidget {
   final Employee employee;
   const _AbsencesTab({required this.employee});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Urlaub', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Urlaub', style: Theme.of(context).textTheme.titleSmall),
+            TextButton.icon(
+              onPressed: () => _addVacation(context, ref, employee),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Eintragen'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            ),
+          ],
+        ),
         if (employee.absences.vacationRanges.isEmpty)
-          const Text('Kein Urlaub eingetragen', style: TextStyle(color: SeebadColors.textSecondary))
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text('Kein Urlaub eingetragen', style: TextStyle(color: SeebadColors.textSecondary)),
+          )
         else
           ...employee.absences.vacationRanges.map((r) => ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.beach_access, size: 20),
+            leading: const Icon(Icons.beach_access, size: 20, color: SeebadColors.primary),
             title: Text('${_formatDate(r.from)} - ${_formatDate(r.to)}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18),
+              onPressed: () => _removeVacation(ref, employee, r),
+            ),
           )),
-        const SizedBox(height: 16),
-        Text('Kurzfristige Abwesenheiten', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
+        const Divider(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Sonstige Abwesenheit', style: Theme.of(context).textTheme.titleSmall),
+            TextButton.icon(
+              onPressed: () => _addShortAbsence(context, ref, employee),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Eintragen'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            ),
+          ],
+        ),
         if (employee.absences.shortUnavailability.isEmpty)
           const Text('Keine Abwesenheiten', style: TextStyle(color: SeebadColors.textSecondary))
         else
           ...employee.absences.shortUnavailability.map((r) => ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.event_busy, size: 20),
+            leading: const Icon(Icons.event_busy, size: 20, color: SeebadColors.warning),
             title: Text('${_formatDate(r.from)} - ${_formatDate(r.to)}'),
             subtitle: r.reason != null ? Text(r.reason!) : null,
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18),
+              onPressed: () => _removeShortAbsence(ref, employee, r),
+            ),
           )),
       ],
     );
   }
 
-  String _formatDate(DateTime date) => '${date.day}.${date.month}.${date.year}';
+  String _formatDate(DateTime date) => DateFormat('dd.MM.yyyy', 'de').format(date);
+
+  Future<void> _addVacation(BuildContext context, WidgetRef ref, Employee employee) async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      locale: const Locale('de'),
+      helpText: 'Urlaubszeitraum wählen',
+    );
+
+    if (range != null) {
+      final updatedAbsences = employee.absences.copyWith(
+        vacationRanges: [...employee.absences.vacationRanges, DateRange(from: range.start, to: range.end)],
+      );
+      await _updateEmployee(ref, employee.copyWith(absences: updatedAbsences));
+    }
+  }
+
+  Future<void> _removeVacation(WidgetRef ref, Employee employee, DateRange range) async {
+    final updatedList = List<DateRange>.from(employee.absences.vacationRanges)..remove(range);
+    final updatedAbsences = employee.absences.copyWith(vacationRanges: updatedList);
+    await _updateEmployee(ref, employee.copyWith(absences: updatedAbsences));
+  }
+
+  Future<void> _addShortAbsence(BuildContext context, WidgetRef ref, Employee employee) async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      locale: const Locale('de'),
+      helpText: 'Abwesenheit wählen',
+    );
+
+    if (range != null) {
+      // Optional: Ask for reason
+      String? reason; // Simplified for now, could actully show a dialog
+      
+      final updatedAbsences = employee.absences.copyWith(
+        shortUnavailability: [...employee.absences.shortUnavailability, DateRange(from: range.start, to: range.end, reason: reason)],
+      );
+      await _updateEmployee(ref, employee.copyWith(absences: updatedAbsences));
+    }
+  }
+
+  Future<void> _removeShortAbsence(WidgetRef ref, Employee employee, DateRange range) async {
+    final updatedList = List<DateRange>.from(employee.absences.shortUnavailability)..remove(range);
+    final updatedAbsences = employee.absences.copyWith(shortUnavailability: updatedList);
+    await _updateEmployee(ref, employee.copyWith(absences: updatedAbsences));
+  }
+
+  Future<void> _updateEmployee(WidgetRef ref, Employee updatedEmployee) async {
+    await ref.read(employeeRepositoryProvider).update(updatedEmployee);
+  }
 }
 
 class _NotesTab extends StatelessWidget {
@@ -503,6 +588,8 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
   late int _workloadPct;
   late ContractStatus _contractStatus;
   late List<String> _areas;
+  late TimeRestrictions _timeRestrictions;
+  late SoftPreference _softPreference;
   bool _isSaving = false;
 
   @override
@@ -513,6 +600,8 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
     _workloadPct = widget.employee?.workloadPct ?? 100;
     _contractStatus = widget.employee?.contractStatus ?? ContractStatus.fixangestellt;
     _areas = List.from(widget.employee?.areas ?? []);
+    _timeRestrictions = widget.employee?.timeRestrictions ?? TimeRestrictions.empty();
+    _softPreference = widget.employee?.softPreference ?? SoftPreference.egal;
   }
 
   @override
@@ -605,6 +694,28 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<TimeRestriction>(
+                value: _timeRestrictions.global,
+                decoration: const InputDecoration(labelText: 'Zeitliche Einschränkung'),
+                items: TimeRestriction.values.map((s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(s.label ?? 'Keine'),
+                )).toList(),
+                onChanged: (v) => setState(() => _timeRestrictions = _timeRestrictions.copyWith(global: v!)),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<SoftPreference>(
+                value: _softPreference,
+                decoration: const InputDecoration(labelText: 'Präferenz'),
+                items: SoftPreference.values.map((s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(s.label),
+                )).toList(),
+                onChanged: (v) => setState(() => _softPreference = v!),
+              ),
             ],
           ),
         ),
@@ -650,9 +761,9 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
           areas: _areas,
           contractStart: DateTime.now(),
           contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-          softPreference: SoftPreference.egal,
+          softPreference: _softPreference,
           freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-          timeRestrictions: TimeRestrictions(),
+          timeRestrictions: _timeRestrictions,
           absences: Absences(),
         );
         await repo.create(newEmployee);
@@ -664,6 +775,8 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
           contractStatus: _contractStatus,
           workloadPct: _workloadPct,
           areas: _areas,
+          softPreference: _softPreference,
+          timeRestrictions: _timeRestrictions,
         );
         await repo.update(updated);
       }
