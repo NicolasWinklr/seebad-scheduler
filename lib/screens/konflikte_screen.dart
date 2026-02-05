@@ -21,35 +21,38 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final periods = ref.watch(periodsProvider);
+    // 1. Load active period ID if not selected
+    final periodsAsync = ref.watch(periodsProvider);
+    final selectedPeriodId = _selectedPeriodId;
+    
+    // Auto-select first period if none selected
+    if (selectedPeriodId == null && periodsAsync.hasValue && periodsAsync.value!.isNotEmpty) {
+      // Defer state update using microtask to avoid build error
+      Future.microtask(() => setState(() => _selectedPeriodId = periodsAsync.value!.first.id));
+    }
 
-    // Sample violations for demo
-    final sampleViolations = [
-      _ViolationItem(
-        date: DateTime(2025, 6, 17),
-        shiftTemplate: 'S-Früh',
-        slotIndex: 1,
-        employeeName: 'Max Mustermann',
-        code: ViolationCode.lateToEarly,
-        explanation: 'Ruhezeit zu kurz: nur 8 Stunden seit letzter Schicht',
-      ),
-      _ViolationItem(
-        date: DateTime(2025, 6, 18),
-        shiftTemplate: 'Mili',
-        slotIndex: 2,
-        employeeName: null,
-        code: ViolationCode.underMinCoverage,
-        explanation: 'Personal unterdeckt: 1 von 2 benötigten Slots besetzt',
-      ),
-      _ViolationItem(
-        date: DateTime(2025, 6, 20),
-        shiftTemplate: 'NM-SB',
-        slotIndex: 1,
-        employeeName: 'Anna Schmidt',
-        code: ViolationCode.softPrefWeekend,
-        explanation: 'Mitarbeiter hat Präferenz "Kein Wochenende"',
-      ),
-    ];
+    final assignmentsAsync = selectedPeriodId != null 
+        ? ref.watch(assignmentsProvider(selectedPeriodId))
+        : const AsyncValue<List<Assignment>>.loading();
+
+    // 2. Generate violations from assignments
+    List<_ViolationItem> violations = [];
+    if (assignmentsAsync.hasValue) {
+      for (final assignment in assignmentsAsync.value!) {
+        for (final code in assignment.violationCodes) {
+          violations.add(_ViolationItem(
+            date: assignment.date,
+            shiftTemplate: assignment.shiftTemplateCode,
+            slotIndex: assignment.slotIndex,
+            employeeName: null, // Employee name requires lookup, currently null is fine or need extra lookup
+            code: code,
+            explanation: code.labelGerman, // Fallback as we don't store full explanation
+          ));
+        }
+      }
+      // Sort by date
+      violations.sort((a, b) => a.date.compareTo(b.date));
+    }
 
     return Column(
       children: [
@@ -65,7 +68,7 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
               // Period selector
               SizedBox(
                 width: 200,
-                child: periods.when(
+                child: periodsAsync.when(
                   data: (list) => DropdownButtonFormField<String>(
                     value: _selectedPeriodId,
                     decoration: const InputDecoration(
@@ -96,13 +99,13 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
               const Spacer(),
               // Summary chips
               _SummaryChip(
-                count: 2,
+                count: violations.where((v) => v.code.isHard).length,
                 label: 'Harte Verstöße',
                 color: SeebadColors.error,
               ),
               const SizedBox(width: 8),
               _SummaryChip(
-                count: 1,
+                count: violations.where((v) => !v.code.isHard).length,
                 label: 'Weiche Verstöße',
                 color: SeebadColors.warning,
               ),
@@ -111,21 +114,23 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
         ),
         // Violations list
         Expanded(
-          child: sampleViolations.isEmpty
-              ? _EmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: sampleViolations.length,
-                  itemBuilder: (context, index) {
-                    final v = sampleViolations[index];
-                    
-                    // Apply filter
-                    if (_severityFilter == 'Hart' && !v.code.isHard) return const SizedBox.shrink();
-                    if (_severityFilter == 'Weich' && v.code.isHard) return const SizedBox.shrink();
-                    
-                    return _ViolationCard(violation: v);
-                  },
-                ),
+          child: assignmentsAsync.isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : violations.isEmpty
+                  ? _EmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: violations.length,
+                      itemBuilder: (context, index) {
+                        final v = violations[index];
+                        
+                        // Apply filter
+                        if (_severityFilter == 'Hart' && !v.code.isHard) return const SizedBox.shrink();
+                        if (_severityFilter == 'Weich' && v.code.isHard) return const SizedBox.shrink();
+                        
+                        return _ViolationCard(violation: v);
+                      },
+                    ),
         ),
       ],
     );

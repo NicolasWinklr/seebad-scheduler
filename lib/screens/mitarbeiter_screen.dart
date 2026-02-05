@@ -583,25 +583,29 @@ class _EmployeeFormDialog extends ConsumerStatefulWidget {
 
 class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
   late int _workloadPct;
   late ContractStatus _contractStatus;
-  late List<String> _areas;
+  late List<ShiftArea> _areas;
   late TimeRestrictions _timeRestrictions;
   late SoftPreference _softPreference;
+  late List<DateRange> _vacations;
+
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _firstNameController = TextEditingController(text: widget.employee?.firstName ?? '');
-    _lastNameController = TextEditingController(text: widget.employee?.lastName ?? '');
+    _firstNameController = TextEditingController(text: widget.employee?.firstName);
+    _lastNameController = TextEditingController(text: widget.employee?.lastName);
     _workloadPct = widget.employee?.workloadPct ?? 100;
     _contractStatus = widget.employee?.contractStatus ?? ContractStatus.fixangestellt;
     _areas = List.from(widget.employee?.areas ?? []);
     _timeRestrictions = widget.employee?.timeRestrictions ?? TimeRestrictions.empty();
     _softPreference = widget.employee?.softPreference ?? SoftPreference.egal;
+    _vacations = List.from(widget.employee?.absences.vacationRanges ?? []);
   }
 
   @override
@@ -609,112 +613,28 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
     return AlertDialog(
       title: Text(widget.employee == null ? 'Neuer Mitarbeiter' : 'Mitarbeiter bearbeiten'),
       content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
+        width: 600,
+        height: 600,
+        child: DefaultTabController(
+          length: 2,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _firstNameController,
-                      decoration: const InputDecoration(labelText: 'Vorname'),
-                      validator: (v) => v?.isEmpty ?? true ? 'Pflichtfeld' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lastNameController,
-                      decoration: const InputDecoration(labelText: 'Nachname'),
-                      validator: (v) => v?.isEmpty ?? true ? 'Pflichtfeld' : null,
-                    ),
-                  ),
+              const TabBar(
+                labelColor: SeebadColors.primary,
+                unselectedLabelColor: SeebadColors.textSecondary,
+                tabs: [
+                  Tab(text: 'Stammdaten'),
+                  Tab(text: 'Abwesenheiten'),
                 ],
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<ContractStatus>(
-                value: _contractStatus,
-                decoration: const InputDecoration(labelText: 'Vertragsstatus'),
-                items: ContractStatus.values.map((s) => DropdownMenuItem(
-                  value: s,
-                  child: Text(s.label),
-                )).toList(),
-                onChanged: (v) => setState(() => _contractStatus = v!),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Arbeitsumfang: $_workloadPct%'),
-                        Slider(
-                          value: _workloadPct.toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 20,
-                          onChanged: (v) => setState(() => _workloadPct = v.round()),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('Sauna'),
-                    selected: _areas.contains(ShiftArea.sauna),
-                    onSelected: (v) => setState(() {
-                      if (v) _areas.add(ShiftArea.sauna);
-                      else _areas.remove(ShiftArea.sauna);
-                    }),
-                  ),
-                  FilterChip(
-                    label: const Text('Mili'),
-                    selected: _areas.contains(ShiftArea.mili),
-                    onSelected: (v) => setState(() {
-                      if (v) _areas.add(ShiftArea.mili);
-                      else _areas.remove(ShiftArea.mili);
-                    }),
-                  ),
-                  FilterChip(
-                    label: const Text('Hallenbad/Strandbad'),
-                    selected: _areas.contains(ShiftArea.hallenbadStrandbad),
-                    onSelected: (v) => setState(() {
-                      if (v) _areas.add(ShiftArea.hallenbadStrandbad);
-                      else _areas.remove(ShiftArea.hallenbadStrandbad);
-                    }),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<TimeRestriction>(
-                value: _timeRestrictions.global,
-                decoration: const InputDecoration(labelText: 'Zeitliche Einschränkung'),
-                items: TimeRestriction.values.map((s) => DropdownMenuItem(
-                  value: s,
-                  child: Text(s.label ?? 'Keine'),
-                )).toList(),
-                onChanged: (v) => setState(() => _timeRestrictions = _timeRestrictions.copyWith(global: v!)),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<SoftPreference>(
-                value: _softPreference,
-                decoration: const InputDecoration(labelText: 'Präferenz'),
-                items: SoftPreference.values.map((s) => DropdownMenuItem(
-                  value: s,
-                  child: Text(s.label),
-                )).toList(),
-                onChanged: (v) => setState(() => _softPreference = v!),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildGeneralTab(),
+                    _buildAbsencesTab(),
+                  ],
+                ),
               ),
             ],
           ),
@@ -735,9 +655,197 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
     );
   }
 
+  Widget _buildGeneralTab() {
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _firstNameController,
+                    decoration: const InputDecoration(labelText: 'Vorname'),
+                    validator: (v) => v?.isEmpty ?? true ? 'Pflichtfeld' : null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextFormField(
+                    controller: _lastNameController,
+                    decoration: const InputDecoration(labelText: 'Nachname'),
+                    validator: (v) => v?.isEmpty ?? true ? 'Pflichtfeld' : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<ContractStatus>(
+              value: _contractStatus,
+              decoration: const InputDecoration(labelText: 'Vertragsstatus'),
+              items: ContractStatus.values.map((s) => DropdownMenuItem(
+                value: s,
+                child: Text(s.label),
+              )).toList(),
+              onChanged: (v) => setState(() => _contractStatus = v!),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Arbeitsumfang: $_workloadPct%'),
+                      Slider(
+                        value: _workloadPct.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        onChanged: (v) => setState(() => _workloadPct = v.round()),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Bereiche', style: TextStyle(fontWeight: FontWeight.w500)),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text('Sauna'),
+                  selected: _areas.contains(ShiftArea.sauna),
+                  onSelected: (v) => setState(() {
+                    if (v) _areas.add(ShiftArea.sauna);
+                    else _areas.remove(ShiftArea.sauna);
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Mili'),
+                  selected: _areas.contains(ShiftArea.mili),
+                  onSelected: (v) => setState(() {
+                    if (v) _areas.add(ShiftArea.mili);
+                    else _areas.remove(ShiftArea.mili);
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Hallenbad/Strandbad'),
+                  selected: _areas.contains(ShiftArea.hallenbadStrandbad),
+                  onSelected: (v) => setState(() {
+                    if (v) _areas.add(ShiftArea.hallenbadStrandbad);
+                    else _areas.remove(ShiftArea.hallenbadStrandbad);
+                  }),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<TimeRestriction>(
+              value: _timeRestrictions.global,
+              decoration: const InputDecoration(labelText: 'Zeitliche Einschränkung'),
+              items: TimeRestriction.values.map((s) => DropdownMenuItem(
+                value: s,
+                child: Text(s.label ?? 'Keine'),
+              )).toList(),
+              onChanged: (v) => setState(() => _timeRestrictions = _timeRestrictions.copyWith(global: v!)),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<SoftPreference>(
+              value: _softPreference,
+              decoration: const InputDecoration(labelText: 'Präferenz'),
+              items: SoftPreference.values.map((s) => DropdownMenuItem(
+                value: s,
+                child: Text(s.label),
+              )).toList(),
+              onChanged: (v) => setState(() => _softPreference = v!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAbsencesTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Geplante Urlaube/Abwesenheiten', style: TextStyle(fontWeight: FontWeight.bold)),
+            TextButton.icon(
+              onPressed: () async {
+                final result = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (result != null) {
+                  setState(() {
+                    _vacations.add(DateRange(from: result.start, to: result.end));
+                    _vacations.sort((a, b) => a.from.compareTo(b.from));
+                  });
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Hinzufügen'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_vacations.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('Keine Urlaube eingetragen.', style: TextStyle(color: SeebadColors.textSecondary)),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: _vacations.length,
+              itemBuilder: (context, index) {
+                final range = _vacations[index];
+                return Card(
+                  elevation: 1,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.beach_access, color: Colors.orange),
+                    title: Text('${_formatDate(range.from)} - ${_formatDate(range.to)}'),
+                    subtitle: Text('${range.to.difference(range.from).inDays + 1} Tage'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: SeebadColors.textSecondary),
+                      onPressed: () => setState(() => _vacations.removeAt(index)),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}.${date.month}.${date.year}';
+  }
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    // If validation fails on general tab, switch to it
+    if (!_formKey.currentState!.validate()) {
+      DefaultTabController.of(context).animateTo(0);
+      return;
+    }
     if (_areas.isEmpty) {
+      DefaultTabController.of(context).animateTo(0);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bitte mindestens einen Bereich auswählen')),
       );
@@ -749,36 +857,31 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
     try {
       final repo = ref.read(employeeRepositoryProvider);
       
+      final employee = Employee(
+        id: widget.employee?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        isActive: widget.employee?.isActive ?? true,
+        contractStatus: _contractStatus,
+        contractWorkPattern: ContractWorkPattern.unbeschraenkt,
+        workloadPct: _workloadPct,
+        areas: _areas,
+        contractStart: widget.employee?.contractStart ?? DateTime.now(),
+        contractEnd: widget.employee?.contractEnd,
+        softPreference: _softPreference,
+        timeRestrictions: _timeRestrictions,
+        freeDaysPerWeek: widget.employee?.freeDaysPerWeek ?? FreeDaysPerWeek(count: 2),
+        absences: Absences(
+          vacationRanges: _vacations,
+          shortUnavailability: widget.employee?.absences.shortUnavailability ?? [],
+        ),
+        notes: widget.employee?.notes,
+      );
+
       if (widget.employee == null) {
-        // Create new employee
-        final newEmployee = Employee(
-          id: '', // Will be generated by Firestore
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          isActive: true,
-          contractStatus: _contractStatus,
-          workloadPct: _workloadPct,
-          areas: _areas,
-          contractStart: DateTime.now(),
-          contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-          softPreference: _softPreference,
-          freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-          timeRestrictions: _timeRestrictions,
-          absences: Absences(),
-        );
-        await repo.create(newEmployee);
+        await repo.create(employee);
       } else {
-        // Update existing employee
-        final updated = widget.employee!.copyWith(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          contractStatus: _contractStatus,
-          workloadPct: _workloadPct,
-          areas: _areas,
-          softPreference: _softPreference,
-          timeRestrictions: _timeRestrictions,
-        );
-        await repo.update(updated);
+        await repo.update(employee);
       }
 
       if (mounted) {

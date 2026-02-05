@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
+import '../services/seed_data_service.dart';
 
 /// Main app shell with sidebar navigation
 class AppShell extends ConsumerWidget {
@@ -282,15 +283,89 @@ class _TopBar extends ConsumerWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(width: 16),
-              IconButton(
-                onPressed: () async {
-                  await ref.read(authServiceProvider).signOut();
-                  if (context.mounted) {
-                    context.go('/login');
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'logout') {
+                    await ref.read(authServiceProvider).signOut();
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
+                  } else if (value == 'seed') {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Testdaten laden?'),
+                        content: const Text(
+                          'Vorsicht! Dies überschreibt/ergänzt Daten in der Datenbank mit Testdaten (Mitarbeiter, Schichten, etc.).',
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Laden'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      try {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Lade Testdaten...')),
+                          );
+                        }
+                        
+                        await SeedDataService().seedAll();
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Testdaten erfolgreich geladen!'),
+                              backgroundColor: SeebadColors.success,
+                            ),
+                          );
+                          // Force refresh of providers
+                          ref.invalidate(shiftTemplatesProvider);
+                          ref.invalidate(employeesProvider);
+                          ref.invalidate(periodsProvider);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    }
                   }
                 },
-                icon: const Icon(Icons.logout),
-                tooltip: 'Abmelden',
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'seed',
+                    child: Row(
+                      children: [
+                        Icon(Icons.cloud_upload_outlined, size: 20, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Testdaten laden (Debug)'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, size: 20),
+                        SizedBox(width: 8),
+                        Text('Abmelden'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(Icons.account_circle_outlined, color: SeebadColors.primary.withValues(alpha: 0.8)),
+                ),
               ),
             ],
           ),
