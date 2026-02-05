@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 import 'utils/theme.dart';
 import 'utils/router.dart';
@@ -13,6 +14,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize German locale for DateFormat
+  await initializeDateFormatting('de', null);
   
   runApp(const ProviderScope(child: SeebadSchedulerApp()));
 }
