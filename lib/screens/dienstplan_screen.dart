@@ -828,7 +828,7 @@ class _SolverProgressDialogState extends ConsumerState<_SolverProgressDialog> {
       
       // Save assignments to Firestore
       setState(() { _status = 'Schritt 4/4: Speichern...'; _progress = 0.9; });
-      await _saveAssignments(result.assignments);
+      await _saveResults(result);
       
       setState(() { 
         _status = 'Fertig! ${result.stats.filledSlots}/${result.stats.totalSlots} Slots besetzt.'; 
@@ -844,11 +844,15 @@ class _SolverProgressDialogState extends ConsumerState<_SolverProgressDialog> {
     }
   }
 
-  Future<void> _saveAssignments(List<Assignment> assignments) async {
+  Future<void> _saveResults(SolverResult result) async {
     final repo = ref.read(periodRepositoryProvider);
-    for (final assignment in assignments) {
-      await repo.saveAssignment(widget.periodId, assignment);
-    }
+    
+    // Clear old assignments and save new ones (batch)
+    await repo.clearAssignments(widget.periodId);
+    await repo.batchSaveAssignments(widget.periodId, result.assignments);
+    
+    // Save violations
+    await repo.saveViolations(widget.periodId, result.violations);
   }
 
   @override

@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/period.dart';
 import '../models/assignment.dart';
+import 'solver_service.dart';
 
 /// Repository for period and assignment data access
 class PeriodRepository {
@@ -108,6 +109,35 @@ class PeriodRepository {
     for (final doc in snapshot.docs) {
       batch.delete(doc.reference);
     }
+    await batch.commit();
+  }
+
+  // --- Violations subcollection ---
+
+  CollectionReference<Map<String, dynamic>> _violationsCollection(String periodId) =>
+      _collection.doc(periodId).collection('violations');
+
+  /// Watch violations for a period
+  Stream<List<SolverViolation>> watchViolations(String periodId) {
+    return _violationsCollection(periodId).snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => SolverViolation.fromFirestore(doc)).toList());
+  }
+
+  /// Save list of violations (replaces existing)
+  Future<void> saveViolations(String periodId, List<SolverViolation> violations) async {
+    final batch = _firestore.batch();
+    
+    // 1. Delete all existing violations
+    final snapshot = await _violationsCollection(periodId).get();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    
+    // 2. Add new violations
+    for (final v in violations) {
+      batch.set(_violationsCollection(periodId).doc(), v.toFirestore());
+    }
+    
     await batch.commit();
   }
 

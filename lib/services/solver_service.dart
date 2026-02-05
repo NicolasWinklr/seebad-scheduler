@@ -76,6 +76,32 @@ class SolverViolation {
     required this.code,
     required this.explanation,
   });
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'date': Timestamp.fromDate(date),
+      'templateCode': templateCode,
+      'slotIndex': slotIndex,
+      'employeeId': employeeId,
+      'code': code.toString().split('.').last,
+      'explanation': explanation,
+    };
+  }
+
+  factory SolverViolation.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return SolverViolation(
+      date: (data['date'] as Timestamp).toDate(),
+      templateCode: data['templateCode'] ?? '',
+      slotIndex: data['slotIndex'],
+      employeeId: data['employeeId'],
+      code: ViolationCode.values.firstWhere(
+        (e) => e.toString().split('.').last == data['code'],
+        orElse: () => ViolationCode.other,
+      ),
+      explanation: data['explanation'] ?? '',
+    );
+  }
 }
 
 /// Main solver class
@@ -313,11 +339,20 @@ class Solver {
   double _scoreEmployee(Employee emp, Slot slot, ShiftTemplate template, List<DateTime> periodDates) {
     double score = 100.0;
 
-    // Factor 1: Hours balance (prefer employees under target)
+    // Factor 1: Fill ratio (prefer under-utilized employees)
     final currentHours = _employeeHours[emp.id] ?? 0;
     final targetHours = _calculateTargetHours(emp, periodDates.length);
-    final hoursDeviation = (currentHours - targetHours).abs();
-    score -= hoursDeviation * (config.weightHoursDeviation / 100);
+    
+    if (targetHours > 0) {
+      // 0.0 = 0% filled, 1.0 = 100% filled
+      final ratio = currentHours / targetHours;
+      // Bonus for being under target (ratio < 1.0), Penalty for being over (ratio > 1.0)
+      // E.g. at 0% -> +50 score. At 50% -> +25 score. At 100% -> 0. At 120% -> -10.
+      score += (1.0 - ratio) * 50; 
+    } else {
+      // Penalty per hour if target is 0
+      score -= currentHours * 5;
+    }
 
     // Factor 2: Sunday fairness
     if (slot.date.weekday == 7) {
