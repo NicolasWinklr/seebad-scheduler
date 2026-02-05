@@ -3,6 +3,7 @@
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
@@ -512,6 +513,9 @@ class _ScheduleGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(selectedPeriodProvider);
+    final assignments = ref.watch(assignmentsProvider(periodId)).valueOrNull ?? [];
+    final employees = ref.watch(employeesProvider).valueOrNull ?? [];
+
     if (period == null) return const _EmptyState();
 
     final dates = weekToggle == 1 
@@ -582,12 +586,26 @@ class _ScheduleGrid extends ConsumerWidget {
               ...dates.map((d) {
                 final cellKey = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}#${template.code}';
                 final isSelected = cellKey == selectedCellKey;
+                
+                // Find assignment for this cell (slot 0 for now)
+                final assignment = assignments.firstWhereOrNull((a) => 
+                  DateUtils.isSameDay(a.date, d) && 
+                  a.shiftTemplateCode == template.code &&
+                  a.slotIndex == 0 // Only showing first slot in grid summary
+                );
+
+                Employee? assignedEmployee;
+                if (assignment?.employeeId != null) {
+                  assignedEmployee = employees.firstWhereOrNull((e) => e.id == assignment!.employeeId);
+                }
+
                 return DataCell(
                   DragTarget<Employee>(
                     onAcceptWithDetails: (details) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${details.data.fullName} zu ${template.label} hinzugefügt')),
+                        SnackBar(content: Text('${details.data.fullName} zu ${template.label} hinzugefügt (Drag & Drop noch nicht voll implementiert)')),
                       );
+                      // TODO: Implement manual assignment
                     },
                     builder: (context, candidateData, rejectedData) {
                       return GestureDetector(
@@ -600,25 +618,40 @@ class _ScheduleGrid extends ConsumerWidget {
                                 ? SeebadColors.primary.withValues(alpha: 0.1)
                                 : candidateData.isNotEmpty 
                                     ? SeebadColors.success.withValues(alpha: 0.1)
-                                    : null,
+                                    : assignedEmployee != null 
+                                        ? SeebadColors.surfaceVariant // Filled
+                                        : null, // Empty
                             border: isSelected ? Border.all(color: SeebadColors.primary, width: 2) : null,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                '${template.minStaffDefault}/${template.idealStaffDefault}',
-                                style: const TextStyle(fontSize: 11, color: SeebadColors.textSecondary),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: SeebadColors.success.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(2),
+                              if (assignedEmployee != null) ...[
+                                Text(
+                                  assignedEmployee.lastName, // Last name mainly
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
+                                Text(
+                                  assignedEmployee.firstName,
+                                  style: const TextStyle(fontSize: 10),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ] else ...[
+                                Text(
+                                  '${template.minStaffDefault}/${template.idealStaffDefault}',
+                                  style: const TextStyle(fontSize: 11, color: SeebadColors.textSecondary),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: SeebadColors.success.withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
