@@ -37,6 +37,16 @@ class ShiftTemplateRepository {
     await _collection.doc(template.code).set(template.toFirestore(), SetOptions(merge: true));
   }
 
+  /// Create new template
+  Future<void> create(ShiftTemplate template) async {
+    await _collection.doc(template.code).set(template.toFirestore());
+  }
+
+  /// Delete template
+  Future<void> delete(String code) async {
+    await _collection.doc(code).delete();
+  }
+
   /// Seed predefined templates
   Future<void> seedTemplates() async {
     final batch = _firestore.batch();

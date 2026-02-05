@@ -39,7 +39,7 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
     List<_ViolationItem> violations = [];
     if (assignmentsAsync.hasValue) {
       for (final assignment in assignmentsAsync.value!) {
-        for (final code in assignment.violationCodes) {
+        for (final code in assignment.violations) {
           violations.add(_ViolationItem(
             date: assignment.date,
             shiftTemplate: assignment.shiftTemplateCode,

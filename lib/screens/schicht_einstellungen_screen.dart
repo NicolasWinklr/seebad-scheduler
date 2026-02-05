@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import 'package:collection/collection.dart';
 
 /// Shift settings screen with templates and demand configuration
 class SchichtEinstellungenScreen extends ConsumerStatefulWidget {
@@ -263,7 +264,7 @@ class _ShiftTemplateDialogState extends ConsumerState<_ShiftTemplateDialog> {
                 DropdownButtonFormField<String>(
                   value: _site,
                   decoration: const InputDecoration(labelText: 'Standort'),
-                  items: ShiftSite.values.map((s) => DropdownMenuItem(
+                  items: ShiftSite.all.map((s) => DropdownMenuItem(
                     value: s,
                     child: Text(ShiftSite.labelGerman(s) ?? s),
                   )).toList(),
@@ -335,7 +336,6 @@ class _ShiftTemplateDialogState extends ConsumerState<_ShiftTemplateDialog> {
         daySegment: _segment,
         minStaffDefault: _minStaff,
         idealStaffDefault: _idealStaff,
-        colorHex: '#2196F3', // Default color
         isActive: true,
       );
 
@@ -519,8 +519,6 @@ class _BaselineSettings extends ConsumerWidget {
   }
 
   }
-}
-
 Future<void> _showDemandDialog(
   BuildContext context,
   WidgetRef ref,

@@ -588,7 +588,7 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
   late TextEditingController _lastNameController;
   late int _workloadPct;
   late ContractStatus _contractStatus;
-  late List<ShiftArea> _areas;
+  late List<String> _areas;
   late TimeRestrictions _timeRestrictions;
   late SoftPreference _softPreference;
   late List<DateRange> _vacations;
