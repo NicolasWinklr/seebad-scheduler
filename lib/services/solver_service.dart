@@ -118,6 +118,7 @@ class Solver {
   final Map<String, int> _employeeHours = {};
   final Map<String, int> _employeeSundays = {};
   final Map<String, Set<String>> _employeeShiftsByDate = {};
+  int _totalDaysAcrossPeriods = 0; // Total days from current + other periods
 
   Solver({
     required this.employees,
@@ -134,7 +135,11 @@ class Solver {
     final assignments = <Assignment>[];
     final violations = <SolverViolation>[];
 
-    // Initialize tracking
+    // Calculate total days across all periods (for accurate monthly target)
+    final existingDates = existingAssignments.map((a) => a.date).toSet();
+    _totalDaysAcrossPeriods = dates.length + existingDates.length;
+
+    // Initialize tracking (includes pre-populating from existing assignments)
     _initializeTracking();
 
     // Phase 1: Generate slots based on demand
@@ -180,6 +185,25 @@ class Solver {
     for (final emp in employees) {
       _employeeHours[emp.id] = 0;
       _employeeSundays[emp.id] = 0;
+    }
+    
+    // Pre-populate with existing assignments from other periods (cross-period tracking)
+    for (final assignment in existingAssignments) {
+      if (assignment.employeeId == null) continue;
+      
+      final template = templates.firstWhereOrNull((t) => t.code == assignment.shiftTemplateCode);
+      if (template == null) continue;
+      
+      // Count hours from other periods
+      final hours = _employeeHours[assignment.employeeId] ?? 0;
+      final shiftHours = template.daySegment == DaySegment.allday ? 8 : 6;
+      _employeeHours[assignment.employeeId!] = hours + shiftHours;
+      
+      // Count Sundays from other periods
+      if (assignment.date.weekday == 7) {
+        final sundays = _employeeSundays[assignment.employeeId] ?? 0;
+        _employeeSundays[assignment.employeeId!] = sundays + 1;
+      }
     }
   }
 
@@ -393,9 +417,12 @@ class Solver {
   }
 
   int _calculateTargetHours(Employee emp, int periodDays) {
-    // Simple target: workload percentage * period days * average hours per day
+    // Use total days across all periods for accurate monthly target
+    // periodDays param kept for compatibility but we use _totalDaysAcrossPeriods
+    final totalDays = _totalDaysAcrossPeriods > 0 ? _totalDaysAcrossPeriods : periodDays;
+    
     const avgShiftHours = 6;
-    final workDays = (periodDays * emp.workloadPct / 100 * 5 / 7).round();
+    final workDays = (totalDays * emp.workloadPct / 100 * 5 / 7).round();
     return workDays * avgShiftHours;
   }
 

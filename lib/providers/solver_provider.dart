@@ -7,7 +7,8 @@ import 'providers.dart';
 /// Provider for running the solver
 final solverProvider = FutureProvider.family<SolverResult, String>((ref, periodId) async {
   // Get all required data
-  final period = await ref.read(periodRepositoryProvider).get(periodId);
+  final periodRepo = ref.read(periodRepositoryProvider);
+  final period = await periodRepo.get(periodId);
   if (period == null) throw Exception('Period not found');
 
   final employees = await ref.read(employeeRepositoryProvider).watchActive().first;
@@ -21,6 +22,22 @@ final solverProvider = FutureProvider.family<SolverResult, String>((ref, periodI
   // Get locks
   final locks = await ref.read(locksProvider(periodId).future);
 
+  // === NEW: Load assignments from other periods in the same month ===
+  // This ensures cross-period tracking for hours, sundays, free days
+  final allPeriods = await periodRepo.watchAll().first;
+  final sameMonthPeriods = allPeriods.where((p) =>
+    p.id != periodId && // Not current period
+    _isOverlappingMonth(p, period) // Same month or overlapping
+  ).toList();
+  
+  // Load assignments from those periods
+  final existingAssignments = <Assignment>[];
+  for (final otherPeriod in sameMonthPeriods) {
+    final assignments = await periodRepo.getAssignments(otherPeriod.id);
+    existingAssignments.addAll(assignments);
+  }
+  // ===================================================================
+
   // Create demand resolver
   final demandResolver = DemandResolver(
     baseline: baseline,
@@ -29,17 +46,30 @@ final solverProvider = FutureProvider.family<SolverResult, String>((ref, periodI
     templates: templates,
   );
 
-  // Create and run solver
+  // Create and run solver with cross-period data
   final solver = Solver(
     employees: employees,
     templates: templates,
     config: config,
     demandResolver: demandResolver,
     locks: locks,
+    existingAssignments: existingAssignments,
   );
 
   return solver.solve(period);
 });
+
+/// Check if two periods overlap in the same calendar month
+bool _isOverlappingMonth(Period a, Period b) {
+  // Check if any part of period A falls in the same month as period B
+  final aStartMonth = DateTime(a.startDate.year, a.startDate.month);
+  final aEndMonth = DateTime(a.endDate.year, a.endDate.month);
+  final bStartMonth = DateTime(b.startDate.year, b.startDate.month);
+  final bEndMonth = DateTime(b.endDate.year, b.endDate.month);
+  
+  // Overlapping if months intersect
+  return (aStartMonth.compareTo(bEndMonth) <= 0 && aEndMonth.compareTo(bStartMonth) >= 0);
+}
 
 /// State notifier for solver progress
 class SolverProgressNotifier extends StateNotifier<SolverProgress> {
