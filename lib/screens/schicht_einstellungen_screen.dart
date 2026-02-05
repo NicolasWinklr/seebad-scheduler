@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart'; // Add collection import
 import '../utils/theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
-import 'package:collection/collection.dart';
 
 /// Shift settings screen with templates and demand configuration
 class SchichtEinstellungenScreen extends ConsumerStatefulWidget {
@@ -264,7 +264,7 @@ class _ShiftTemplateDialogState extends ConsumerState<_ShiftTemplateDialog> {
                 DropdownButtonFormField<String>(
                   value: _site,
                   decoration: const InputDecoration(labelText: 'Standort'),
-                  items: ShiftSite.all.map((s) => DropdownMenuItem(
+                  items: ShiftSite.all.map((s) => DropdownMenuItem( // Fix ShiftSite.all
                     value: s,
                     child: Text(ShiftSite.labelGerman(s) ?? s),
                   )).toList(),
@@ -336,6 +336,7 @@ class _ShiftTemplateDialogState extends ConsumerState<_ShiftTemplateDialog> {
         daySegment: _segment,
         minStaffDefault: _minStaff,
         idealStaffDefault: _idealStaff,
+        // Removed colorHex argument
         isActive: true,
       );
 
@@ -517,8 +518,8 @@ class _BaselineSettings extends ConsumerWidget {
       ),
     );
   }
+}
 
-  }
 Future<void> _showDemandDialog(
   BuildContext context,
   WidgetRef ref,
@@ -662,6 +663,7 @@ class _DemandOverrideDialogState extends State<_DemandOverrideDialog> {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+}
 
 class _WeekdayPatterns extends ConsumerWidget {
   @override
