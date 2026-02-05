@@ -61,7 +61,7 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
                     const SizedBox(height: 8),
                     periods.when(
                       data: (list) => DropdownButtonFormField<String>(
-                        value: selectedPeriodId,
+                        value: list.any((p) => p.id == selectedPeriodId) ? selectedPeriodId : null,
                         decoration: const InputDecoration(
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
