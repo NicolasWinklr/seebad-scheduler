@@ -330,6 +330,14 @@ class Solver {
     // Check time restrictions
     if (!_passesTimeRestriction(emp, template)) return false;
 
+    // HARD CONSTRAINT: Maximum Sundays (prevent 3+ Sundays absolutely)
+    if (slot.date.weekday == 7) {
+      final currentSundays = _employeeSundays[emp.id] ?? 0;
+      if (currentSundays >= config.sundayTargetMax) {
+        return false; // Cannot assign more Sunday shifts
+      }
+    }
+
     return true;
   }
 

@@ -1,11 +1,10 @@
-// Konflikte screen - Conflict/violation management
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import '../services/solver_service.dart';
 
 /// Conflict view screen showing all violations
 class KonflikteScreen extends ConsumerStatefulWidget {
@@ -35,8 +34,29 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
         ? ref.watch(assignmentsProvider(selectedPeriodId))
         : const AsyncValue<List<Assignment>>.loading();
 
-    // 2. Generate violations from assignments
+    // Load period-level violations from Firestore
+    final periodViolationsAsync = selectedPeriodId != null
+        ? ref.watch(violationsProvider(selectedPeriodId))
+        : const AsyncValue<List<SolverViolation>>.loading();
+
+    // 2. Combine violations from both sources
     List<_ViolationItem> violations = [];
+    
+    // Source A: Period-level violations (from solver)
+    if (periodViolationsAsync.hasValue) {
+      for (final v in periodViolationsAsync.value!) {
+        violations.add(_ViolationItem(
+          date: v.date,
+          shiftTemplate: v.templateCode,
+          slotIndex: v.slotIndex ?? 0,
+          employeeName: null, // Could lookup from employeeId
+          code: v.code,
+          explanation: v.explanation,
+        ));
+      }
+    }
+    
+    // Source B: Assignment-level violations (embedded in assignments)
     if (assignmentsAsync.hasValue) {
       for (final assignment in assignmentsAsync.value!) {
         for (final code in assignment.violations) {
@@ -44,15 +64,21 @@ class _KonflikteScreenState extends ConsumerState<KonflikteScreen> {
             date: assignment.date,
             shiftTemplate: assignment.shiftTemplateCode,
             slotIndex: assignment.slotIndex,
-            employeeName: null, // Employee name requires lookup, currently null is fine or need extra lookup
+            employeeName: null,
             code: code,
-            explanation: code.labelGerman, // Fallback as we don't store full explanation
+            explanation: code.labelGerman,
           ));
         }
       }
-      // Sort by date
-      violations.sort((a, b) => a.date.compareTo(b.date));
     }
+    
+    // Sort by severity (hard first), then date
+    violations.sort((a, b) {
+      if (a.code.isHard != b.code.isHard) {
+        return a.code.isHard ? -1 : 1;
+      }
+      return a.date.compareTo(b.date);
+    });
 
     return Column(
       children: [

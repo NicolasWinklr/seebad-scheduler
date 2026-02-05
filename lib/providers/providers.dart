@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/models.dart';
 import '../services/services.dart';
+import '../services/solver_service.dart'; // For SolverViolation
 
 export 'solver_provider.dart';
 
@@ -74,6 +75,10 @@ final assignmentsProvider = StreamProvider.family<List<Assignment>, String>((ref
 
 final locksProvider = StreamProvider.family<List<AssignmentLock>, String>((ref, periodId) {
   return ref.watch(periodRepositoryProvider).watchLocks(periodId);
+});
+
+final violationsProvider = StreamProvider.family<List<SolverViolation>, String>((ref, periodId) {
+  return ref.watch(periodRepositoryProvider).watchViolations(periodId);
 });
 
 // --- Settings Providers ---
