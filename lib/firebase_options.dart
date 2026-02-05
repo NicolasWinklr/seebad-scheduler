@@ -18,11 +18,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    appId: 'YOUR_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_AUTH_DOMAIN',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
+    apiKey: 'AIzaSyDfmhS47f-RRRKMB6txTZtG5zTZD0yapas',
+    appId: '1:773476876004:web:97b111981a71cdfad776f1',
+    messagingSenderId: '773476876004',
+    projectId: 'seebad-scheduler-d531c',
+    authDomain: 'seebad-scheduler-d531c.firebaseapp.com',
+    storageBucket: 'seebad-scheduler-d531c.firebasestorage.app',
   );
+
 }
