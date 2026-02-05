@@ -76,6 +76,11 @@ class SettingsRepository {
     await _weekdayPatternCollection(weekday).doc(override.templateCode).set(override.toFirestore());
   }
 
+  /// Delete weekday pattern override
+  Future<void> deleteWeekdayPattern(String weekday, String templateCode) async {
+    await _weekdayPatternCollection(weekday).doc(templateCode).delete();
+  }
+
   /// Get all weekday patterns
   Future<Map<String, Map<String, DemandOverride>>> getAllWeekdayPatterns() async {
     final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];

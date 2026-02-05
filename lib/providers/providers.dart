@@ -86,6 +86,10 @@ final baselineDemandProvider = StreamProvider<Map<String, DemandOverride>>((ref)
   return ref.watch(settingsRepositoryProvider).watchBaselineDemand();
 });
 
+final weekdayPatternsProvider = StreamProvider.family<Map<String, DemandOverride>, String>((ref, weekday) {
+  return ref.watch(settingsRepositoryProvider).watchWeekdayPattern(weekday);
+});
+
 // --- UI State Providers ---
 
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);

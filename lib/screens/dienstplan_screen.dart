@@ -914,7 +914,7 @@ class _ResultStats extends StatelessWidget {
                   children: result.violations.map((v) => Padding(
                     padding: const EdgeInsets.only(bottom: 2),
                     child: Text(
-                      '• ${v.message}',
+                      '• ${v.explanation}',
                       style: const TextStyle(fontSize: 11, color: SeebadColors.textSecondary),
                     ),
                   )).toList(),
