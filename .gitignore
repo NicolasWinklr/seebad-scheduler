@@ -1,0 +1,33 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+*.iml
+*.log
+
+# IDE
+.idea/
+*.ipr
+*.iws
+.vscode/
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Environment
+.env
+.env.*
+
+# Misc
+*.class
+*.jar
+*.pyc
+__pycache__/

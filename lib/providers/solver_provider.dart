@@ -1,0 +1,138 @@
+// Solver provider for running the solver from UI
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/services.dart';
+import 'providers.dart';
+
+/// Provider for running the solver
+final solverProvider = FutureProvider.family<SolverResult, String>((ref, periodId) async {
+  // Get all required data
+  final period = await ref.read(periodRepositoryProvider).get(periodId);
+  if (period == null) throw Exception('Period not found');
+
+  final employees = await ref.read(employeeRepositoryProvider).watchActive().first;
+  final templates = await ref.read(shiftTemplateRepositoryProvider).watchActive().first;
+  final config = await ref.read(settingsRepositoryProvider).getSolverConfig();
+  
+  // Get demand settings
+  final baseline = await ref.read(baselineDemandProvider.future);
+  final weekdayPatterns = await ref.read(settingsRepositoryProvider).getAllWeekdayPatterns();
+  
+  // Get locks
+  final locks = await ref.read(locksProvider(periodId).future);
+
+  // Create demand resolver
+  final demandResolver = DemandResolver(
+    baseline: baseline,
+    weekdayPatterns: weekdayPatterns,
+    dateOverrides: {}, // TODO: Load from period subcollection
+    templates: templates,
+  );
+
+  // Create and run solver
+  final solver = Solver(
+    employees: employees,
+    templates: templates,
+    config: config,
+    demandResolver: demandResolver,
+    locks: locks,
+  );
+
+  return solver.solve(period);
+});
+
+/// State notifier for solver progress
+class SolverProgressNotifier extends StateNotifier<SolverProgress> {
+  SolverProgressNotifier() : super(SolverProgress.initial());
+
+  void startPhase(SolverPhase phase, String message) {
+    state = state.copyWith(
+      currentPhase: phase,
+      message: message,
+      progress: _phaseProgress(phase),
+    );
+  }
+
+  void complete(SolverResult result) {
+    state = state.copyWith(
+      currentPhase: SolverPhase.complete,
+      message: 'Fertig!',
+      progress: 1.0,
+      result: result,
+    );
+  }
+
+  void error(String message) {
+    state = state.copyWith(
+      currentPhase: SolverPhase.error,
+      message: message,
+    );
+  }
+
+  double _phaseProgress(SolverPhase phase) {
+    switch (phase) {
+      case SolverPhase.initial:
+        return 0.0;
+      case SolverPhase.generatingSlots:
+        return 0.25;
+      case SolverPhase.assigningEmployees:
+        return 0.5;
+      case SolverPhase.checkingViolations:
+        return 0.75;
+      case SolverPhase.finalizing:
+        return 0.9;
+      case SolverPhase.complete:
+        return 1.0;
+      case SolverPhase.error:
+        return 0.0;
+    }
+  }
+}
+
+enum SolverPhase {
+  initial,
+  generatingSlots,
+  assigningEmployees,
+  checkingViolations,
+  finalizing,
+  complete,
+  error,
+}
+
+class SolverProgress {
+  final SolverPhase currentPhase;
+  final String message;
+  final double progress;
+  final SolverResult? result;
+
+  SolverProgress({
+    required this.currentPhase,
+    required this.message,
+    required this.progress,
+    this.result,
+  });
+
+  factory SolverProgress.initial() => SolverProgress(
+    currentPhase: SolverPhase.initial,
+    message: 'Initialisiere...',
+    progress: 0.0,
+  );
+
+  SolverProgress copyWith({
+    SolverPhase? currentPhase,
+    String? message,
+    double? progress,
+    SolverResult? result,
+  }) {
+    return SolverProgress(
+      currentPhase: currentPhase ?? this.currentPhase,
+      message: message ?? this.message,
+      progress: progress ?? this.progress,
+      result: result ?? this.result,
+    );
+  }
+}
+
+final solverProgressProvider = StateNotifierProvider<SolverProgressNotifier, SolverProgress>(
+  (ref) => SolverProgressNotifier(),
+);
