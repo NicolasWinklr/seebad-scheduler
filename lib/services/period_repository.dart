@@ -57,6 +57,12 @@ class PeriodRepository {
         snapshot.docs.map((doc) => Assignment.fromFirestore(doc)).toList());
   }
 
+  /// Get all assignments for a period
+  Future<List<Assignment>> getAssignments(String periodId) async {
+    final snapshot = await _assignmentsCollection(periodId).get();
+    return snapshot.docs.map((doc) => Assignment.fromFirestore(doc)).toList();
+  }
+
   /// Get assignments for a specific date
   Future<List<Assignment>> getAssignmentsForDate(String periodId, DateTime date) async {
     final startOfDay = DateTime(date.year, date.month, date.day);

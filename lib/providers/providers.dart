@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 
+export 'solver_provider.dart';
+
 // --- Service Providers ---
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());

@@ -1,11 +1,13 @@
 // Dienstplan screen with 2-week grid
 
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import '../services/services.dart';
 
 /// Dienstplan screen with 2-week scheduling grid
 class DienstplanScreen extends ConsumerStatefulWidget {
@@ -43,7 +45,18 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Periode', style: Theme.of(context).textTheme.titleSmall),
+                    Row(
+                      children: [
+                        Text('Periode', style: Theme.of(context).textTheme.titleSmall),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => _showCreatePeriodDialog(),
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                          tooltip: 'Neue Periode erstellen',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     periods.when(
                       data: (list) => DropdownButtonFormField<String>(
@@ -149,10 +162,13 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
   }
 
   void _generateSchedule() {
+    final periodId = ref.read(selectedPeriodIdProvider);
+    if (periodId == null) return;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const _SolverProgressDialog(),
+      builder: (context) => _SolverProgressDialog(periodId: periodId),
     );
   }
 
@@ -169,9 +185,7 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
               title: const Text('PDF Export'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PDF Export wird vorbereitet...')),
-                );
+                _exportPdf();
               },
             ),
             ListTile(
@@ -179,9 +193,7 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
               title: const Text('Excel Export'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Excel Export wird vorbereitet...')),
-                );
+                _exportExcel();
               },
             ),
           ],
@@ -192,6 +204,105 @@ class _DienstplanScreenState extends ConsumerState<DienstplanScreen> {
             child: const Text('Abbrechen'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _exportPdf() async {
+    final periodId = ref.read(selectedPeriodIdProvider);
+    final period = ref.read(selectedPeriodProvider);
+    final templates = ref.read(activeShiftTemplatesProvider).valueOrNull ?? [];
+    final employees = ref.read(activeEmployeesProvider).valueOrNull ?? [];
+    final assignments = await ref.read(periodRepositoryProvider).getAssignments(periodId!);
+    
+    if (period == null) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('PDF wird generiert...')),
+    );
+    
+    try {
+      final pdfService = PdfExportService();
+      final bytes = await pdfService.generateSchedulePdf(
+        period: period,
+        assignments: assignments,
+        templates: templates,
+        employees: employees,
+      );
+      
+      // Download in browser
+      final blob = html.Blob([bytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', 'dienstplan_${period.shortLabel}.pdf')
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF heruntergeladen!'), backgroundColor: SeebadColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportExcel() async {
+    final periodId = ref.read(selectedPeriodIdProvider);
+    final period = ref.read(selectedPeriodProvider);
+    final templates = ref.read(activeShiftTemplatesProvider).valueOrNull ?? [];
+    final employees = ref.read(activeEmployeesProvider).valueOrNull ?? [];
+    final assignments = await ref.read(periodRepositoryProvider).getAssignments(periodId!);
+    
+    if (period == null) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Excel wird generiert...')),
+    );
+    
+    try {
+      final excelService = ExcelExportService();
+      final bytes = await excelService.generateScheduleExcel(
+        period: period,
+        assignments: assignments,
+        templates: templates,
+        employees: employees,
+      );
+      
+      // Download in browser
+      final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', 'dienstplan_${period.shortLabel}.xlsx')
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Excel heruntergeladen!'), backgroundColor: SeebadColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showCreatePeriodDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _CreatePeriodDialog(
+        onCreated: (periodId) {
+          ref.read(selectedPeriodIdProvider.notifier).state = periodId;
+        },
       ),
     );
   }
@@ -667,16 +778,21 @@ class _SlotCard extends StatelessWidget {
   }
 }
 
-class _SolverProgressDialog extends StatefulWidget {
-  const _SolverProgressDialog();
+class _SolverProgressDialog extends ConsumerStatefulWidget {
+  final String periodId;
+  
+  const _SolverProgressDialog({required this.periodId});
 
   @override
-  State<_SolverProgressDialog> createState() => _SolverProgressDialogState();
+  ConsumerState<_SolverProgressDialog> createState() => _SolverProgressDialogState();
 }
 
-class _SolverProgressDialogState extends State<_SolverProgressDialog> {
-  String _status = 'Slots generieren...';
+class _SolverProgressDialogState extends ConsumerState<_SolverProgressDialog> {
+  String _status = 'Initialisiere...';
   double _progress = 0.0;
+  bool _isComplete = false;
+  String? _error;
+  SolverResult? _result;
 
   @override
   void initState() {
@@ -685,30 +801,262 @@ class _SolverProgressDialogState extends State<_SolverProgressDialog> {
   }
 
   Future<void> _runSolver() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() { _status = 'Schritt 1/4: Slots generieren...'; _progress = 0.25; });
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() { _status = 'Schritt 2/4: Mitarbeiter zuweisen...'; _progress = 0.5; });
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() { _status = 'Schritt 3/4: Konflikte prüfen...'; _progress = 0.75; });
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() { _status = 'Schritt 4/4: Finalisieren...'; _progress = 1.0; });
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) Navigator.pop(context);
+    try {
+      setState(() { _status = 'Schritt 1/4: Slots generieren...'; _progress = 0.25; });
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      setState(() { _status = 'Schritt 2/4: Mitarbeiter zuweisen...'; _progress = 0.5; });
+      
+      // Actually run the solver
+      final result = await ref.read(solverProvider(widget.periodId).future);
+      
+      setState(() { _status = 'Schritt 3/4: Konflikte prüfen...'; _progress = 0.75; });
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Save assignments to Firestore
+      setState(() { _status = 'Schritt 4/4: Speichern...'; _progress = 0.9; });
+      await _saveAssignments(result.assignments);
+      
+      setState(() { 
+        _status = 'Fertig! ${result.stats.filledSlots}/${result.stats.totalSlots} Slots besetzt.'; 
+        _progress = 1.0; 
+        _isComplete = true;
+        _result = result;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _status = 'Fehler: $e';
+      });
+    }
+  }
+
+  Future<void> _saveAssignments(List<Assignment> assignments) async {
+    final repo = ref.read(periodRepositoryProvider);
+    for (final assignment in assignments) {
+      await repo.saveAssignment(widget.periodId, assignment);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Dienstplan wird generiert...'),
+      title: Text(_error != null ? 'Fehler' : _isComplete ? 'Fertig!' : 'Dienstplan wird generiert...'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LinearProgressIndicator(value: _progress),
-          const SizedBox(height: 16),
+          if (_error == null) ...[
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 16),
+          ],
           Text(_status),
+          if (_result != null) ...[
+            const SizedBox(height: 16),
+            _ResultStats(result: _result!),
+          ],
+        ],
+      ),
+      actions: [
+        if (_isComplete || _error != null)
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, _result),
+            child: const Text('Schließen'),
+          ),
+      ],
+    );
+  }
+}
+
+class _ResultStats extends StatelessWidget {
+  final SolverResult result;
+  
+  const _ResultStats({required this.result});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SeebadColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatItem(label: 'Besetzt', value: result.stats.filledSlots.toString(), color: SeebadColors.success),
+              _StatItem(label: 'Offen', value: result.stats.emptyMinSlots.toString(), color: SeebadColors.warning),
+              _StatItem(label: 'Konflikte', value: result.violations.length.toString(), color: SeebadColors.error),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Abdeckung: ${result.stats.coveragePercent.toStringAsFixed(1)}%',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  
+  const _StatItem({required this.label, required this.value, required this.color});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: const TextStyle(fontSize: 12, color: SeebadColors.textSecondary)),
+      ],
+    );
+  }
+}
+
+class _CreatePeriodDialog extends ConsumerStatefulWidget {
+  final Function(String periodId) onCreated;
+
+  const _CreatePeriodDialog({required this.onCreated});
+
+  @override
+  ConsumerState<_CreatePeriodDialog> createState() => _CreatePeriodDialogState();
+}
+
+class _CreatePeriodDialogState extends ConsumerState<_CreatePeriodDialog> {
+  late DateTime _startDate;
+  late DateTime _endDate;
+  bool _isCreating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to next Monday for 2 weeks
+    final now = DateTime.now();
+    final daysUntilMonday = (8 - now.weekday) % 7;
+    _startDate = DateTime(now.year, now.month, now.day + daysUntilMonday);
+    _endDate = _startDate.add(const Duration(days: 13)); // 2 weeks
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Neue Periode erstellen'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('Startdatum'),
+            subtitle: Text(DateFormat('dd.MM.yyyy (EEEE)', 'de').format(_startDate)),
+            onTap: () => _pickDate(isStart: true),
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('Enddatum'),
+            subtitle: Text(DateFormat('dd.MM.yyyy (EEEE)', 'de').format(_endDate)),
+            onTap: () => _pickDate(isStart: false),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SeebadColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 20, color: SeebadColors.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  '${_endDate.difference(_startDate).inDays + 1} Tage',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isCreating ? null : () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        ElevatedButton(
+          onPressed: _isCreating ? null : _createPeriod,
+          child: _isCreating 
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Erstellen'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      locale: const Locale('de'),
+    );
+    if (date != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = date;
+          // Adjust end date if needed
+          if (_endDate.isBefore(_startDate)) {
+            _endDate = _startDate.add(const Duration(days: 13));
+          }
+        } else {
+          _endDate = date;
+        }
+      });
+    }
+  }
+
+  Future<void> _createPeriod() async {
+    if (_endDate.isBefore(_startDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enddatum muss nach Startdatum liegen'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isCreating = true);
+    
+    try {
+      final period = Period(
+        id: '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}',
+        startDate: _startDate,
+        endDate: _endDate,
+        status: PeriodStatus.draft,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      
+      await ref.read(periodRepositoryProvider).create(period);
+      
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onCreated(period.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Periode ${period.shortLabel} erstellt!'), backgroundColor: SeebadColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
   }
 }
