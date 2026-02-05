@@ -1,6 +1,7 @@
 // Solver service
 // Main scheduling algorithm with constraint-based greedy assignment
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import '../models/models.dart';
 import 'demand_resolver.dart';

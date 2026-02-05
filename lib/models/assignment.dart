@@ -57,7 +57,8 @@ enum ViolationCode {
   softPrefWeekday('SOFT_PREF_WEEKDAY', 'Präferenz: Lieber unter der Woche', false),
   hoursDeviation('HOURS_DEVIATION', 'Arbeitsstunden-Abweichung', false),
   sundayFairness('SUNDAY_FAIRNESS', 'Sonntag-Fairness', false),
-  workloadClustering('WORKLOAD_CLUSTERING', 'Arbeitsbelastung gehäuft', false);
+  workloadClustering('WORKLOAD_CLUSTERING', 'Arbeitsbelastung gehäuft', false),
+  other('OTHER', 'Sonstiger Konflikt', false);
 
   final String code;
   final String labelGerman;
