@@ -20,107 +20,193 @@ class SeedDataService {
     await seedSamplePeriod();
   }
 
-  /// Seed the 9 predefined shift templates
+  /// Seed the specific shift templates requested by the user
   Future<void> seedShiftTemplates() async {
-    await _templateRepo.seedTemplates();
-  }
+    final templates = [
+      // Bad (Hallenbad)
+      ShiftTemplate(
+        code: 'B-Frueh',
+        label: 'B-Früh',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.hallenbad,
+        daySegment: DaySegment.am,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '06:00',
+        defaultEnd: '14:00',
+        isActive: true,
+      ),
+      ShiftTemplate(
+        code: 'B-Spaet',
+        label: 'B-Spät',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.hallenbad,
+        daySegment: DaySegment.pm,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '14:00',
+        defaultEnd: '22:00',
+        isActive: true,
+      ),
+      ShiftTemplate(
+        code: 'B-Mitte',
+        label: 'B-Mitte',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.hallenbad,
+        daySegment: DaySegment.allday,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '10:00',
+        defaultEnd: '18:00',
+        isActive: true,
+      ),
+      
+      // Sauna
+      ShiftTemplate(
+        code: 'S-Frueh',
+        label: 'S-Früh',
+        area: ShiftArea.sauna,
+        daySegment: DaySegment.am,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '09:00',
+        defaultEnd: '15:00',
+        isActive: true,
+      ),
+      ShiftTemplate(
+        code: 'S-Spaet',
+        label: 'S-Spät',
+        area: ShiftArea.sauna,
+        daySegment: DaySegment.pm,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '15:00',
+        defaultEnd: '22:00',
+        isActive: true,
+      ),
 
-  /// Seed 5 sample employees
-  Future<void> seedEmployees() async {
-    final employees = [
-      Employee(
-        id: 'emp_1',
-        firstName: 'Max',
-        lastName: 'Mustermann',
+      // Strandbad / Mili specifics
+      ShiftTemplate(
+        code: 'SB-Mitte',
+        label: 'SB-Mitte',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.strandbad,
+        daySegment: DaySegment.allday,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '10:00',
+        defaultEnd: '18:00',
         isActive: true,
-        contractStatus: ContractStatus.fixangestellt,
-        contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-        workloadPct: 100,
-        areas: [ShiftArea.sauna, ShiftArea.hallenbadStrandbad],
-        contractStart: DateTime(2020, 1, 1),
-        softPreference: SoftPreference.egal,
-        timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
-        freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-        absences: Absences(vacationRanges: [], shortUnavailability: []),
-        notes: 'Erfahrener Mitarbeiter, kann alle Bereiche abdecken.',
       ),
-      Employee(
-        id: 'emp_2',
-        firstName: 'Anna',
-        lastName: 'Schmidt',
+      ShiftTemplate(
+        code: 'Mili',
+        label: 'Militärbad',
+        area: ShiftArea.mili,
+        daySegment: DaySegment.allday,
+        minStaffDefault: 1,
+        idealStaffDefault: 2, // Often needs more cover?
+        defaultStart: '09:00',
+        defaultEnd: '19:00',
         isActive: true,
-        contractStatus: ContractStatus.teilzeit,
-        contractWorkPattern: ContractWorkPattern.nurUnterDerWoche,
-        workloadPct: 60,
-        areas: [ShiftArea.hallenbadStrandbad],
-        contractStart: DateTime(2022, 6, 1),
-        softPreference: SoftPreference.lieberUnterDerWoche,
-        timeRestrictions: TimeRestrictions(global: TimeRestriction.nurVormittags),
-        freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-        absences: Absences(vacationRanges: [], shortUnavailability: []),
-        notes: 'Arbeitet nur vormittags unter der Woche.',
       ),
-      Employee(
-        id: 'emp_3',
-        firstName: 'Thomas',
-        lastName: 'Müller',
+      ShiftTemplate(
+        code: 'VM-SB',
+        label: 'VM-SB',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.strandbad,
+        daySegment: DaySegment.am,
+        minStaffDefault: 1,
+        idealStaffDefault: 1,
+        defaultStart: '08:00',
+        defaultEnd: '14:00',
         isActive: true,
-        contractStatus: ContractStatus.fixangestellt,
-        contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-        workloadPct: 100,
-        areas: [ShiftArea.sauna, ShiftArea.mili],
-        contractStart: DateTime(2018, 3, 15),
-        softPreference: SoftPreference.lieberUnterDerWoche,
-        timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
-        freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-        absences: Absences(vacationRanges: [], shortUnavailability: []),
-        notes: 'Spezialist für Sauna und Mili-Bereich.',
       ),
-      Employee(
-        id: 'emp_4',
-        firstName: 'Lisa',
-        lastName: 'Weber',
+      ShiftTemplate(
+        code: 'NM-SB',
+        label: 'NM-SB',
+        area: ShiftArea.hallenbadStrandbad,
+        site: ShiftSite.strandbad,
+        daySegment: DaySegment.pm,
+        minStaffDefault: 2, // Requested by user: mind 2, besser 3
+        idealStaffDefault: 3,
+        defaultStart: '14:00',
+        defaultEnd: '20:00',
         isActive: true,
-        contractStatus: ContractStatus.ferialer,
-        contractWorkPattern: ContractWorkPattern.nurWochenende,
-        workloadPct: 40,
-        areas: [ShiftArea.hallenbadStrandbad],
-        contractStart: DateTime(2025, 6, 1),
-        contractEnd: DateTime(2025, 9, 30),
-        softPreference: SoftPreference.keinWochenende,
-        timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
-        freeDaysPerWeek: FreeDaysPerWeek(count: 1),
-        absences: Absences(vacationRanges: [], shortUnavailability: []),
-        notes: 'Sommerferialer, nur während Saison.',
-      ),
-      Employee(
-        id: 'emp_5',
-        firstName: 'Michael',
-        lastName: 'Huber',
-        isActive: true,
-        contractStatus: ContractStatus.fixangestellt,
-        contractWorkPattern: ContractWorkPattern.unbeschraenkt,
-        workloadPct: 80,
-        areas: [ShiftArea.sauna, ShiftArea.mili, ShiftArea.hallenbadStrandbad],
-        contractStart: DateTime(2019, 9, 1),
-        softPreference: SoftPreference.egal,
-        timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
-        freeDaysPerWeek: FreeDaysPerWeek(count: 2),
-        absences: Absences(
-          vacationRanges: [
-            DateRange(
-              from: DateTime(2025, 7, 14),
-              to: DateTime(2025, 7, 28),
-            ),
-          ],
-          shortUnavailability: [],
-        ),
-        notes: 'Flexibler Allrounder. Urlaub vom 14.-28. Juli.',
       ),
     ];
 
-    for (final emp in employees) {
-      await _firestore.collection('employees').doc(emp.id).set(emp.toFirestore());
+    print('Seeding ${templates.length} shift templates...');
+    for (final t in templates) {
+      await _templateRepo.create(t);
+    }
+  }
+
+  /// Seed employees based on the roster image and requirements
+  Future<void> seedEmployees() async {
+    // List based on provided image
+    final staffList = [
+      // Name, Role (fix/ferial), Areas
+      ('Gerold', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.sauna]),
+      ('Wolfi Ba', ContractStatus.fixangestellt, [ShiftArea.sauna, ShiftArea.hallenbadStrandbad]),
+      ('Olivier', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.sauna, ShiftArea.mili]),
+      ('Pascal', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.mili, ShiftArea.sauna]),
+      ('Anna H.', ContractStatus.fixangestellt, [ShiftArea.sauna, ShiftArea.hallenbadStrandbad]),
+      ('Gabriel', ContractStatus.fixangestellt, [ShiftArea.sauna, ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Dieter', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Elena', ContractStatus.fixangestellt, [ShiftArea.mili, ShiftArea.hallenbadStrandbad, ShiftArea.sauna]),
+      ('Roman', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Eliakim', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Ada', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Olivia', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Linus L.', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Anna M.', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Manuel', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]), // Hat "KURS"?
+      ('Alina', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Noemi', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Andre', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Max', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Linus Ob', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Karim', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Hakam', ContractStatus.ferialer, [ShiftArea.hallenbadStrandbad]),
+      ('Marco', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad]),
+      ('Johanna', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad]),
+      ('Thomas', ContractStatus.fixangestellt, [ShiftArea.mili, ShiftArea.hallenbadStrandbad]),
+      ('Wolfi Sch', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad]),
+      ('Sophie', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad, ShiftArea.mili]),
+      ('Julien', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad]),
+      ('Sascha', ContractStatus.fixangestellt, [ShiftArea.hallenbadStrandbad]),
+    ];
+
+    print('Seeding ${staffList.length} employees...');
+    
+    for (var i = 0; i < staffList.length; i++) {
+        final entry = staffList[i];
+        final nameParts = entry.$1.split(' ');
+        final firstName = nameParts[0];
+        final lastName = nameParts.length > 1 ? nameParts[1] : '';
+        final status = entry.$2;
+        final areas = entry.$3;
+
+        final isFerial = status == ContractStatus.ferialer;
+        
+        final emp = Employee(
+            id: 'emp_${firstName.toLowerCase()}_${lastName.toLowerCase()}_${i}',
+            firstName: firstName,
+            lastName: lastName,
+            isActive: true,
+            contractStatus: status,
+            contractWorkPattern: ContractWorkPattern.unbeschraenkt,
+            workloadPct: isFerial ? 50 : 100, // Guess
+            areas: areas,
+            contractStart: DateTime(2023, 1, 1),
+            softPreference: SoftPreference.egal,
+            timeRestrictions: TimeRestrictions(global: TimeRestriction.unrestricted),
+            freeDaysPerWeek: FreeDaysPerWeek(count: 2),
+            absences: Absences(vacationRanges: [], shortUnavailability: []),
+            notes: isFerial ? 'Ferialer / Aushilfe' : 'Stammpersonal',
+        );
+
+        await _firestore.collection('employees').doc(emp.id).set(emp.toFirestore());
     }
   }
 
@@ -129,10 +215,18 @@ class SeedDataService {
     await _settingsRepo.seedDefaults();
   }
 
-  /// Seed a sample period for current month
+  /// Seed a sample period for current month and next month
   Future<void> seedSamplePeriod() async {
     final now = DateTime.now();
-    final period = Period.create(year: now.year, month: now.month);
-    await _periodRepo.create(period);
+    
+    // Create current month
+    final period1 = Period.create(year: now.year, month: now.month);
+    await _periodRepo.create(period1);
+    
+    // Create next month
+    final nextMonth = now.month == 12 ? 1 : now.month + 1;
+    final nextYear = now.month == 12 ? now.year + 1 : now.year;
+    final period2 = Period.create(year: nextYear, month: nextMonth);
+    await _periodRepo.create(period2);
   }
 }
