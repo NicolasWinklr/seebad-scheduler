@@ -80,7 +80,6 @@ class Period {
     required int month,
   }) {
     final startDate = DateTime(year, month, 1);
-    // Day 0 of next month is the last day of current month
     final endDate = DateTime(year, month + 1, 0);
     final id = '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}';
 
@@ -88,6 +87,25 @@ class Period {
       id: id,
       startDate: startDate,
       endDate: endDate,
+    );
+  }
+
+  /// Create a periodic block (e.g. 2 weeks) starting on a Monday
+  factory Period.createWeeks({
+    required DateTime startDate,
+    int durationWeeks = 2,
+  }) {
+    // Round to previous Monday if not already
+    final start = startDate.subtract(Duration(days: startDate.weekday - 1));
+    final end = start.add(Duration(days: 7 * durationWeeks - 1));
+    
+    // ID Format: YYYY-MWW (Monday Week)
+    final id = '${start.year}-KW${((start.difference(DateTime(start.year, 1, 1)).inDays) / 7).ceil()}';
+
+    return Period(
+      id: id,
+      startDate: start,
+      endDate: end,
     );
   }
 

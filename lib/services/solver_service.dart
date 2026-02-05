@@ -415,7 +415,7 @@ class Solver {
           templateCode: '',
           employeeId: emp.id,
           code: ViolationCode.hoursDeviation,
-          explanation: '${emp.fullName}: $totalHours Std. (Ziel: $targetHours Std.)',
+          explanation: '${emp.fullName}: $totalHours Std. geplant (Vertragsziel: $targetHours Std.) - bitte prüfen',
         ));
       }
 

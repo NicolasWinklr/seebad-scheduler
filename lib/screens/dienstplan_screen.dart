@@ -514,7 +514,7 @@ class _ScheduleGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(selectedPeriodProvider);
     final assignments = ref.watch(assignmentsProvider(periodId)).valueOrNull ?? [];
-    final employees = ref.watch(employeesProvider).valueOrNull ?? [];
+    final employees = ref.watch(activeEmployeesProvider).valueOrNull ?? [];
 
     if (period == null) return const _EmptyState();
 
@@ -532,16 +532,17 @@ class _ScheduleGrid extends ConsumerWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          columnSpacing: 8,
+          columnSpacing: 4, // Tighter spacing
           headingRowHeight: 56,
-          dataRowMinHeight: 60,
-          dataRowMaxHeight: 80,
-          border: TableBorder.all(color: Colors.grey.shade200, width: 1),
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 50,
+          border: TableBorder.all(color: Colors.grey.shade300, width: 1),
           columns: [
-            const DataColumn(label: SizedBox(width: 100, child: Text('Schicht', style: TextStyle(fontWeight: FontWeight.w600)))),
+            const DataColumn(label: SizedBox(width: 120, child: Text('Mitarbeiter', style: TextStyle(fontWeight: FontWeight.bold)))),
             ...dates.map((d) => DataColumn(
               label: Container(
-                width: 80,
+                width: 60,
+                alignment: Alignment.center,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -552,119 +553,97 @@ class _ScheduleGrid extends ConsumerWidget {
                         color: (d.weekday == 6 || d.weekday == 7) ? SeebadColors.primary : null,
                       ),
                     ),
-                    Text(dateFormatter.format(d), style: const TextStyle(fontSize: 12)),
+                    Text(dateFormatter.format(d), style: const TextStyle(fontSize: 10)),
                   ],
                 ),
               ),
             )),
           ],
-          rows: templates.map((template) => DataRow(
-            cells: [
-              DataCell(
-                Container(
-                  width: 100,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(template.label, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Color(template.areaColor).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          template.area.length > 12 ? '${template.area.substring(0, 10)}...' : template.area,
-                          style: TextStyle(fontSize: 10, color: Color(template.areaColor)),
-                        ),
-                      ),
-                    ],
+          rows: employees.map((emp) {
+            return DataRow(
+              cells: [
+                DataCell(
+                  Container(
+                    width: 120,
+                    padding: const EdgeInsets.only(right: 8),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      emp.fullName,
+                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-              ),
-              ...dates.map((d) {
-                final cellKey = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}#${template.code}';
-                final isSelected = cellKey == selectedCellKey;
-                
-                // Find assignment for this cell (slot 0 for now)
-                final assignment = assignments.firstWhereOrNull((a) => 
-                  DateUtils.isSameDay(a.date, d) && 
-                  a.shiftTemplateCode == template.code &&
-                  a.slotIndex == 0 // Only showing first slot in grid summary
-                );
+                ...dates.map((d) {
+                  // Find assignment for this employee on this date
+                  final assignment = assignments.firstWhereOrNull((a) => 
+                    DateUtils.isSameDay(a.date, d) && 
+                    a.employeeId == emp.id
+                  );
+                  
+                  final template = assignment != null 
+                    ? templates.firstWhereOrNull((t) => t.code == assignment.shiftTemplateCode)
+                    : null;
+                  
+                  final shiftLabel = template?.label ?? (assignment?.shiftTemplateCode ?? '');
+                  final cellColor = _getShiftColor(assignment?.shiftTemplateCode);
+                  final textColor = _getTextColorForBackground(cellColor);
+                  
+                  // Check for absence
+                  final isAbsent = emp.absences.isUnavailable(d);
 
-                Employee? assignedEmployee;
-                if (assignment?.employeeId != null) {
-                  assignedEmployee = employees.firstWhereOrNull((e) => e.id == assignment!.employeeId);
-                }
-
-                return DataCell(
-                  DragTarget<Employee>(
-                    onAcceptWithDetails: (details) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${details.data.fullName} zu ${template.label} hinzugefügt (Drag & Drop noch nicht voll implementiert)')),
-                      );
-                      // TODO: Implement manual assignment
-                    },
-                    builder: (context, candidateData, rejectedData) {
-                      return GestureDetector(
-                        onTap: () => onCellSelected(cellKey),
-                        child: Container(
-                          width: 80,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: isSelected 
-                                ? SeebadColors.primary.withValues(alpha: 0.1)
-                                : candidateData.isNotEmpty 
-                                    ? SeebadColors.success.withValues(alpha: 0.1)
-                                    : assignedEmployee != null 
-                                        ? SeebadColors.surfaceVariant // Filled
-                                        : null, // Empty
-                            border: isSelected ? Border.all(color: SeebadColors.primary, width: 2) : null,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (assignedEmployee != null) ...[
-                                Text(
-                                  assignedEmployee.lastName, // Last name mainly
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  assignedEmployee.firstName,
-                                  style: const TextStyle(fontSize: 10),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ] else ...[
-                                Text(
-                                  '${template.minStaffDefault}/${template.idealStaffDefault}',
-                                  style: const TextStyle(fontSize: 11, color: SeebadColors.textSecondary),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: SeebadColors.success.withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                  return DataCell(
+                    Container(
+                      width: 60,
+                      height: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: assignment != null ? cellColor : (isAbsent ? Colors.grey.shade100 : Colors.white),
+                        border: Border.all(color: Colors.grey.shade100, width: 0.5),
+                        // Hatching for absence could be added here
+                      ),
+                      child: Text(
+                        assignment != null ? shiftLabel : (isAbsent ? 'Urlaub' : 'Frei'),
+                        style: TextStyle(
+                          fontSize: 10, // Small text to fit
+                          fontWeight: assignment != null ? FontWeight.bold : FontWeight.normal,
+                          color: assignment != null ? textColor : Colors.grey.shade400,
                         ),
-                      );
-                    },
-                  ),
-                );
-              }),
-            ],
-          )).toList(),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            );
+          }).toList(),
         ),
       ),
     );
+  }
+
+  Color _getShiftColor(String? code) {
+    if (code == null) return Colors.white;
+    // PDF Style Colors
+    if (code.startsWith('B-Fr')) return Colors.cyan.shade300; // Blue/Cyan
+    if (code.startsWith('B-Sp')) return Colors.blue.shade800; // Dark Blue
+    if (code.startsWith('B-Mi')) return Colors.green.shade400; 
+    
+    if (code.startsWith('S-Fr')) return Colors.yellow.shade400; // Yellow
+    if (code.startsWith('S-Sp')) return Colors.red.shade400;    // Red
+    
+    if (code.contains('Mili')) return Colors.black87; // Black
+    
+    if (code.contains('SB')) return Colors.purple.shade200;
+    
+    return Colors.grey.shade300;
+  }
+
+  Color _getTextColorForBackground(Color bg) {
+    if (bg == Colors.white) return Colors.black;
+    if (bg == Colors.yellow.shade400) return Colors.black;
+    if (bg == Colors.cyan.shade300) return Colors.black;
+    return ThemeData.estimateBrightnessForColor(bg) == Brightness.dark ? Colors.white : Colors.black;
   }
 }
 

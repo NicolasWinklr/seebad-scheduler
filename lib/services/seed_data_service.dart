@@ -269,14 +269,13 @@ class SeedDataService {
   Future<void> seedSamplePeriod() async {
     final now = DateTime.now();
     
-    // Create current month (Period.create now uses 1st to last day)
-    final period1 = Period.create(year: now.year, month: now.month);
+    // Create current 2-week period (starting this week's Monday)
+    final period1 = Period.createWeeks(startDate: now);
     await _periodRepo.create(period1);
     
-    // Create next month
-    final nextMonth = now.month == 12 ? 1 : now.month + 1;
-    final nextYear = now.month == 12 ? now.year + 1 : now.year;
-    final period2 = Period.create(year: nextYear, month: nextMonth);
+    // Create next 2-week period
+    final nextStart = period1.startDate.add(const Duration(days: 14));
+    final period2 = Period.createWeeks(startDate: nextStart);
     await _periodRepo.create(period2);
   }
 }
