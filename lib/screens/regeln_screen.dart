@@ -4,158 +4,192 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/theme.dart';
 import '../providers/providers.dart';
+import '../models/models.dart';
 
 /// Rules and optimization configuration screen
-class RegelnScreen extends ConsumerWidget {
+class RegelnScreen extends ConsumerStatefulWidget {
   const RegelnScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(solverConfigProvider);
+  ConsumerState<RegelnScreen> createState() => _RegelnScreenState();
+}
 
-    return config.when(
-      data: (cfg) => SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hard rules section
-            _SectionCard(
-              title: 'Harte Regeln',
-              subtitle: 'Diese Einschränkungen werden immer eingehalten',
-              icon: Icons.gavel,
-              color: SeebadColors.error,
-              child: Column(
-                children: [
-                  _RuleToggle(
-                    title: 'Spätschicht zu Frühschicht verboten',
-                    subtitle: 'Keine PM-Schicht gefolgt von AM-Schicht am nächsten Tag',
-                    value: cfg.forbidLateToEarly,
-                    onChanged: (v) {},
-                  ),
-                  const Divider(),
-                  _NumberSetting(
-                    title: 'Mindestruhezeit (Stunden)',
-                    value: cfg.minRestHours,
-                    min: 8,
-                    max: 16,
-                    onChanged: (v) {},
-                  ),
-                  const Divider(),
-                  _NumberSetting(
-                    title: 'Max. Schichten pro Tag pro Mitarbeiter',
-                    value: cfg.maxShiftsPerDayPerEmployee,
-                    min: 1,
-                    max: 3,
-                    onChanged: (v) {},
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+class _RegelnScreenState extends ConsumerState<RegelnScreen> {
+  SolverConfig? _editedConfig;
+  bool _isSaving = false;
 
-            // Soft weights section
-            _SectionCard(
-              title: 'Soft-Gewichtungen',
-              subtitle: 'Optimierungsprioritäten (0–100)',
-              icon: Icons.tune,
-              color: SeebadColors.warning,
-              child: Column(
-                children: [
-                  _WeightSlider(
-                    title: 'Abdeckung (Ideal erreichen)',
-                    value: cfg.weightCoverageIdeal,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Unterdeckung (unter Minimum)',
-                    value: cfg.weightCoverageUnderMin,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Arbeitsstunden-Abweichung',
-                    value: cfg.weightHoursDeviation,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Soft-Präferenz Verletzung',
-                    value: cfg.weightSoftPreference,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Blockplanung (zusammenhängende Tage)',
-                    value: cfg.weightBlockPlanning,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Sonntag-Fairness',
-                    value: cfg.weightSundayFairness,
-                    onChanged: (v) {},
-                  ),
-                  _WeightSlider(
-                    title: 'Arbeitslast-Glättung',
-                    value: cfg.weightWorkloadSmoothing,
-                    onChanged: (v) {},
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+  @override
+  Widget build(BuildContext context) {
+    final configAsync = ref.watch(solverConfigProvider);
 
-            // Sunday targets
-            _SectionCard(
-              title: 'Sonntag-Ziele',
-              subtitle: 'Faire Verteilung der Sonntagsschichten',
-              icon: Icons.wb_sunny_outlined,
-              color: SeebadColors.success,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _NumberSetting(
-                      title: 'Minimum pro Mitarbeiter',
-                      value: cfg.sundayTargetMin,
-                      min: 0,
-                      max: 4,
-                      onChanged: (v) {},
+    return configAsync.when(
+      data: (cfg) {
+        _editedConfig ??= cfg;
+        final config = _editedConfig!;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hard rules section
+              _SectionCard(
+                title: 'Harte Regeln',
+                subtitle: 'Diese Einschränkungen werden immer eingehalten',
+                icon: Icons.gavel,
+                color: SeebadColors.error,
+                child: Column(
+                  children: [
+                    _RuleToggle(
+                      title: 'Spätschicht zu Frühschicht verboten',
+                      subtitle: 'Keine PM-Schicht gefolgt von AM-Schicht am nächsten Tag',
+                      value: config.forbidLateToEarly,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(forbidLateToEarly: v)),
                     ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _NumberSetting(
-                      title: 'Maximum pro Mitarbeiter',
-                      value: cfg.sundayTargetMax,
-                      min: 0,
-                      max: 6,
-                      onChanged: (v) {},
+                    const Divider(),
+                    _NumberSetting(
+                      title: 'Mindestruhezeit (Stunden)',
+                      value: config.minRestHours,
+                      min: 8,
+                      max: 16,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(minRestHours: v)),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Save button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Einstellungen gespeichert')),
-                  );
-                },
-                icon: const Icon(Icons.save),
-                label: const Text('Einstellungen speichern'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                    const Divider(),
+                    _NumberSetting(
+                      title: 'Max. Schichten pro Tag pro Mitarbeiter',
+                      value: config.maxShiftsPerDayPerEmployee,
+                      min: 1,
+                      max: 3,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(maxShiftsPerDayPerEmployee: v)),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 24),
+
+              // Soft weights section
+              _SectionCard(
+                title: 'Soft-Gewichtungen',
+                subtitle: 'Optimierungsprioritäten (0–100)',
+                icon: Icons.tune,
+                color: SeebadColors.warning,
+                child: Column(
+                  children: [
+                    _WeightSlider(
+                      title: 'Abdeckung (Ideal erreichen)',
+                      value: config.weightCoverageIdeal,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightCoverageIdeal: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Unterdeckung (unter Minimum)',
+                      value: config.weightCoverageUnderMin,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightCoverageUnderMin: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Arbeitsstunden-Abweichung',
+                      value: config.weightHoursDeviation,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightHoursDeviation: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Soft-Präferenz Verletzung',
+                      value: config.weightSoftPreference,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightSoftPreference: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Blockplanung (zusammenhängende Tage)',
+                      value: config.weightBlockPlanning,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightBlockPlanning: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Sonntag-Fairness',
+                      value: config.weightSundayFairness,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightSundayFairness: v)),
+                    ),
+                    _WeightSlider(
+                      title: 'Arbeitslast-Glättung',
+                      value: config.weightWorkloadSmoothing,
+                      onChanged: (v) => setState(() => _editedConfig = config.copyWith(weightWorkloadSmoothing: v)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Sunday targets
+              _SectionCard(
+                title: 'Sonntag-Ziele',
+                subtitle: 'Faire Verteilung der Sonntagsschichten',
+                icon: Icons.wb_sunny_outlined,
+                color: SeebadColors.success,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _NumberSetting(
+                        title: 'Minimum pro Mitarbeiter',
+                        value: config.sundayTargetMin,
+                        min: 0,
+                        max: 4,
+                        onChanged: (v) => setState(() => _editedConfig = config.copyWith(sundayTargetMin: v)),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: _NumberSetting(
+                        title: 'Maximum pro Mitarbeiter',
+                        value: config.sundayTargetMax,
+                        min: 0,
+                        max: 6,
+                        onChanged: (v) => setState(() => _editedConfig = config.copyWith(sundayTargetMax: v)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveConfig,
+                  icon: _isSaving 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.save),
+                  label: const Text('Einstellungen speichern'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Fehler: $e')),
     );
+  }
+
+  Future<void> _saveConfig() async {
+    if (_editedConfig == null) return;
+    
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(settingsRepositoryProvider).saveSolverConfig(_editedConfig!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Einstellungen gespeichert'), backgroundColor: SeebadColors.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }
 
