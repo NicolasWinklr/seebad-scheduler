@@ -395,9 +395,7 @@ class _TopBar extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const PopupMargin(
-                    child: Divider(),
-                  ),
+                  const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'logout',
                     child: Row(
