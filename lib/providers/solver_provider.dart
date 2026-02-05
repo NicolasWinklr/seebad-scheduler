@@ -1,6 +1,7 @@
 // Solver provider for running the solver from UI
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/models.dart';
 import '../services/services.dart';
 import 'providers.dart';
 
